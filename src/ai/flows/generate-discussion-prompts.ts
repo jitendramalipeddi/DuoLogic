@@ -31,6 +31,7 @@ export async function generateDiscussionPrompts(
 
 const discussionPromptsPrompt = ai.definePrompt({
   name: 'discussionPromptsPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: {schema: GenerateDiscussionPromptsInputSchema},
   output: {schema: GenerateDiscussionPromptsOutputSchema},
   prompt: `You are an AI assistant designed to help two students collaboratively identify reasoning flaws in their Boolean expression simplification.

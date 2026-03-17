@@ -57,6 +57,7 @@ export async function suggestCircuitImprovements(
 
 const suggestCircuitImprovementsPrompt = ai.definePrompt({
   name: 'suggestCircuitImprovementsPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: SuggestCircuitImprovementsInputSchema },
   output: { schema: SuggestCircuitImprovementsOutputSchema },
   prompt: `You are an expert in digital logic design and circuit optimization. Your task is to analyze a user's constructed circuit and compare its efficiency to a K-map optimized solution.

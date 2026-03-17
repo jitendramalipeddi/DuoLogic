@@ -50,6 +50,7 @@ Rows and columns follow standard Gray code order, meaning adjacent cells (includ
 
 const prompt = ai.definePrompt({
   name: 'adviseKMapGroupingOptimizationPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: AdviseKMapGroupingOptimizationInputSchema },
   output: { schema: AdviseKMapGroupingOptimizationOutputSchema },
   prompt: `You are an expert in digital logic design and K-map simplification. Your task is to analyze user-provided groupings on a 4-variable K-map and provide constructive feedback on their optimality.

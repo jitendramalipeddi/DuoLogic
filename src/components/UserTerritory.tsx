@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
 import { generateDiscussionPrompts } from '@/ai/flows/generate-discussion-prompts';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info } from 'lucide-react';
 
 interface UserTerritoryProps {
   userId: number;
@@ -36,7 +36,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     }
   };
 
-  const isTruthTableComplete = useMemo(() => {
+  const isSectionComplete = useMemo(() => {
     const range = isUser1 ? [0, 1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14, 15];
     return range.every(idx => state.userTruthTable[idx] !== -1);
   }, [state.userTruthTable, isUser1]);
@@ -66,7 +66,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       updateState({ expressions: newExpressions });
 
       if (newExpressions[1] && newExpressions[2]) {
-        if (newExpressions[1] === newExpressions[2]) {
+        if (newExpressions[1].trim() === newExpressions[2].trim()) {
           updateState({ stage: 'simulator' });
           logEvent('expressions_matched', { expression: expressionInput });
         } else {
@@ -85,12 +85,11 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       const isQuotaError = e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED');
       toast({
         variant: "destructive",
-        title: "Expression Submission Error",
+        title: "AI Processing Error",
         description: isQuotaError 
-          ? "AI Quota exceeded. Please wait a moment and try again." 
-          : "An error occurred while processing your expression.",
+          ? "API Quota exceeded. Please wait a moment and try again." 
+          : "The AI assistant is temporarily unavailable.",
       });
-      // Reset expression in state if it failed to process discussion prompts
       const resetExpressions = { ...state.expressions, [userId]: '' };
       updateState({ expressions: resetExpressions });
     } finally {
@@ -103,7 +102,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       id: `gate-${Math.random().toString(36).substr(2, 9)}`,
       type,
       userId,
-      x: 150 + Math.random() * 200,
+      x: 200 + Math.random() * 200,
       y: 100 + Math.random() * 200
     };
     updateState({ circuitComponents: [...state.circuitComponents, newComp] });
@@ -114,26 +113,29 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     <div className={`${className} flex flex-col space-y-4 h-full overflow-hidden`}>
       <div className="flex items-center justify-between border-b pb-2">
         <div className="flex items-center space-x-2">
-          <div className={`w-3 h-3 rounded-full ${accentColor} shadow-sm`} />
-          <h3 className={`text-sm font-bold tracking-wider ${textColor}`}>
-            USER {userId} TERRITORY
+          <div className={`w-3 h-3 rounded-full ${accentColor} shadow-sm animate-pulse`} />
+          <h3 className={`text-sm font-black tracking-widest ${textColor}`}>
+            PARTNER {userId}
           </h3>
         </div>
-        {isTruthTableComplete && state.stage === 'truth_table' && (
+        {isSectionComplete && state.stage === 'truth_table' && (
           <div className="flex items-center text-green-600 text-[10px] font-bold">
             <CheckCircle2 className="w-3 h-3 mr-1" />
-            SECTION COMPLETE
+            READY
           </div>
         )}
       </div>
 
       <div className="flex-1 overflow-auto">
         {state.stage === 'intro' && !state.accepted[userId] && (
-          <div className="flex flex-col items-center justify-center h-full space-y-4">
-            <p className="text-muted-foreground text-sm text-center px-8">Confirm your participation in the collaborative session</p>
+          <div className="flex flex-col items-center justify-center h-full space-y-6">
+            <div className="text-center space-y-2">
+              <p className="font-bold text-lg">Ready to begin?</p>
+              <p className="text-muted-foreground text-sm px-8">Confirm your participation to start the logic design challenge.</p>
+            </div>
             <Button 
               size="lg" 
-              className={`w-40 h-16 text-xl font-bold shadow-lg ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              className={`w-48 h-20 text-2xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
               onClick={handleAccept}
             >
               ACCEPT
@@ -143,17 +145,20 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
         {state.stage === 'truth_table' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {(isUser1 ? [0,1,2,3,4,5,6,7] : [8,9,10,11,12,13,14,15]).map((rowIdx) => (
-                <div key={rowIdx} className={`p-2 bg-white border ${borderColor} rounded-lg shadow-sm flex items-center justify-between`}>
-                  <span className="font-mono text-[10px] text-muted-foreground uppercase">Row {rowIdx}</span>
-                  <div className="flex gap-1">
+                <div key={rowIdx} className={`p-3 bg-white border-2 ${borderColor} rounded-xl shadow-sm flex items-center justify-between`}>
+                  <div className="flex flex-col">
+                    <span className="font-black text-[10px] text-muted-foreground uppercase leading-none">Row</span>
+                    <span className="font-mono text-xl font-bold">{rowIdx}</span>
+                  </div>
+                  <div className="flex gap-2">
                     {[0, 1].map(v => (
                       <Button 
                         key={v}
                         size="sm"
                         variant={state.userTruthTable[rowIdx] === v ? 'default' : 'outline'}
-                        className={`h-8 w-8 p-0 text-xs font-bold ${state.userTruthTable[rowIdx] === v ? (isUser1 ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600') : ''}`}
+                        className={`h-10 w-10 p-0 text-lg font-black border-2 ${state.userTruthTable[rowIdx] === v ? (isUser1 ? 'bg-red-600 border-red-700' : 'bg-blue-600 border-blue-700') : 'border-slate-100'}`}
                         onClick={() => handleTruthTableEntry(rowIdx, v)}
                       >
                         {v}
@@ -164,10 +169,10 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
               ))}
             </div>
             {bothTruthTablesComplete ? (
-               <Button onClick={() => updateState({ stage: 'kmap' })} className="w-full font-bold shadow-md">Proceed to K-Map</Button>
-            ) : isTruthTableComplete ? (
-              <div className="p-3 bg-muted/40 rounded-lg text-xs text-center border-dashed border border-muted-foreground/30 italic">
-                Waiting for Peer to complete their section...
+               <Button onClick={() => updateState({ stage: 'kmap' })} className="w-full h-14 text-lg font-black bg-primary shadow-xl rounded-xl">PROCEED TO K-MAP</Button>
+            ) : isSectionComplete ? (
+              <div className="p-4 bg-slate-50 rounded-xl text-sm font-bold text-center border-2 border-dashed border-slate-200 text-slate-400 italic">
+                Waiting for Peer...
               </div>
             ) : null}
           </div>
@@ -178,53 +183,55 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             <div className="scale-75 origin-top">
               <KMapGrid state={state} updateState={updateState} logEvent={logEvent} activeUserId={userId} />
             </div>
-            <div className="w-full space-y-2">
-              <Button onClick={() => updateState({ stage: 'equation'})} className="w-full font-bold">Next: Derive Equation</Button>
-            </div>
+            <Button onClick={() => updateState({ stage: 'equation'})} className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl">NEXT: DEFINE EQUATION</Button>
           </div>
         )}
 
         {(state.stage === 'equation' || state.stage === 'discussion') && (
-          <div className="space-y-4 p-4 bg-white rounded-xl border-2 border-slate-100 shadow-inner">
-             <div className="flex items-center gap-2">
-               <AlertCircle className={`w-4 h-4 ${textColor}`} />
-               <h4 className="font-bold text-sm">Boolean Simplification</h4>
+          <div className="space-y-4 p-6 bg-white rounded-2xl border-4 border-slate-50 shadow-inner">
+             <div className="flex items-center gap-2 mb-2">
+               <AlertCircle className={`w-5 h-5 ${textColor}`} />
+               <h4 className="font-black text-sm uppercase tracking-tighter">Derived Equation</h4>
              </div>
              <Input 
                 value={expressionInput}
                 onChange={(e) => setExpressionInput(e.target.value)}
-                placeholder="e.g. A'BC + D"
-                className="font-mono text-lg h-12 border-2 focus-visible:ring-offset-1"
+                placeholder="e.g. A'B + CD"
+                className="font-mono text-2xl h-16 border-2 border-slate-100 focus-visible:ring-offset-2 rounded-xl text-center"
+                disabled={state.expressions[userId] !== ''}
              />
              <Button 
                 onClick={handleSubmitExpression} 
                 disabled={validating || state.expressions[userId] !== ''}
-                className={`w-full h-12 font-bold ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'}`}
              >
-                {state.expressions[userId] ? 'Awaiting Peer...' : validating ? 'Validating...' : 'Submit Expression'}
+                {state.expressions[userId] ? 'AWAITING PEER...' : validating ? 'VALIDATING...' : 'SUBMIT'}
              </Button>
           </div>
         )}
 
         {state.stage === 'simulator' && (
           <div className="space-y-4">
-             <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Component Library</h4>
+             <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-400 px-1">Logic Gate Library</h4>
              <div className="grid grid-cols-3 gap-3">
                 {['AND', 'OR', 'NOT'].map((type) => (
                   <Button
                     key={type}
                     variant="outline"
-                    className={`h-24 flex flex-col gap-2 border-2 hover:border-primary transition-all shadow-md group ${isUser1 ? 'hover:bg-red-50' : 'hover:bg-blue-50'}`}
+                    className={`h-28 flex flex-col gap-2 border-4 rounded-2xl hover:border-primary transition-all shadow-md group ${isUser1 ? 'hover:bg-red-50 hover:border-red-300' : 'hover:bg-blue-50 hover:border-blue-300'}`}
                     onClick={() => addGate(type as any)}
                   >
-                    <Plus className="w-4 h-4 text-slate-400 group-hover:text-primary" />
-                    <span className="text-[10px] font-bold uppercase">{type}</span>
-                    <div className={`w-8 h-4 rounded-sm ${type === 'AND' ? 'gate-and' : type === 'OR' ? 'gate-or' : 'gate-not'}`} />
+                    <Plus className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{type}</span>
+                    <div className={`w-10 h-5 rounded-md ${type === 'AND' ? 'gate-and' : type === 'OR' ? 'gate-or' : 'gate-not'} shadow-sm`} />
                   </Button>
                 ))}
              </div>
-             <div className="p-4 bg-muted/30 rounded-lg border border-dashed text-xs text-muted-foreground leading-relaxed">
-               <strong>Collaboration:</strong> Drag gates onto the shared board. Connect pins to build the circuit described in your equation.
+             <div className="p-4 bg-muted/20 rounded-2xl border-2 border-dashed border-slate-200 flex gap-3 items-start">
+               <Info className="w-5 h-5 text-slate-400 shrink-0" />
+               <p className="text-[11px] font-bold text-slate-500 leading-tight">
+                 Add components and drag them onto the common space. Drag from black pins to connect wires.
+               </p>
              </div>
           </div>
         )}

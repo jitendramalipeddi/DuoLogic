@@ -14,7 +14,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function DuoLogicApp() {
   const { 
@@ -41,7 +41,7 @@ export default function DuoLogicApp() {
           const isNotFoundError = e.message?.includes('404') || e.message?.includes('not found');
           
           let message = "An error occurred while initializing the logic problem.";
-          if (isQuotaError) message = "API Quota exceeded. Please try again in a few minutes.";
+          if (isQuotaError) message = "AI API Quota exceeded. Please try again in a few minutes.";
           if (isNotFoundError) message = "AI model configuration error. Please contact support.";
           
           setError(message);
@@ -70,8 +70,11 @@ export default function DuoLogicApp() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center text-primary font-headline text-2xl animate-pulse">
-        Initializing DuoLogic...
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+        <div className="text-primary font-black text-2xl tracking-tighter">
+          STARTING DUOLOGIC...
+        </div>
       </div>
     );
   }
@@ -79,11 +82,13 @@ export default function DuoLogicApp() {
   if (error) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50 p-6 text-center space-y-4">
-        <AlertTriangle className="w-16 h-16 text-destructive" />
-        <h2 className="text-2xl font-bold">System Error</h2>
-        <p className="text-muted-foreground max-w-md">{error}</p>
-        <Button onClick={() => window.location.reload()} className="gap-2">
-          <RefreshCcw className="w-4 h-4" /> Retry
+        <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mb-2">
+          <AlertTriangle className="w-10 h-10 text-destructive" />
+        </div>
+        <h2 className="text-3xl font-black tracking-tight">System Initialization Error</h2>
+        <p className="text-muted-foreground max-w-md font-medium">{error}</p>
+        <Button onClick={() => window.location.reload()} size="lg" className="gap-2 rounded-xl font-bold px-8">
+          <RefreshCcw className="w-4 h-4" /> RESTART SESSION
         </Button>
       </div>
     );
@@ -92,19 +97,21 @@ export default function DuoLogicApp() {
   if (state.stage === 'finished') {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-white p-12 text-center space-y-8">
-        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-4">
+        <div className="w-32 h-32 bg-green-100 rounded-[3rem] flex items-center justify-center mb-4 animate-in zoom-in-50 duration-500">
           <CheckCircle className="w-16 h-16 text-green-600" />
         </div>
-        <h1 className="text-4xl font-bold font-headline text-slate-900">Task Completed!</h1>
-        <p className="text-xl text-muted-foreground max-w-lg">
-          Excellent collaboration. You have successfully designed and verified the digital logic circuit.
-        </p>
+        <div className="space-y-2">
+          <h1 className="text-5xl font-black tracking-tighter text-slate-900">MISSION COMPLETE!</h1>
+          <p className="text-xl font-bold text-muted-foreground max-w-lg">
+            Outstanding collaboration. The circuit operates exactly as required.
+          </p>
+        </div>
         <div className="flex gap-4">
-          <Button size="lg" onClick={downloadLogs} className="gap-2 px-8">
-            <Download className="w-5 h-5" /> Download Session Logs
+          <Button size="lg" onClick={downloadLogs} className="h-16 gap-3 px-10 rounded-2xl font-black text-lg bg-slate-900 shadow-2xl">
+            <Download className="w-6 h-6" /> DOWNLOAD LOGS
           </Button>
-          <Button variant="outline" size="lg" onClick={() => window.location.reload()} className="gap-2 px-8">
-            <RefreshCcw className="w-5 h-5" /> Start New Session
+          <Button variant="outline" size="lg" onClick={() => window.location.reload()} className="h-16 gap-3 px-10 rounded-2xl font-black text-lg border-4">
+            <RefreshCcw className="w-6 h-6" /> NEW TASK
           </Button>
         </div>
       </div>
@@ -113,70 +120,78 @@ export default function DuoLogicApp() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
-      <header className="h-14 border-b bg-white flex items-center justify-between px-6 z-50 shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="h-16 border-b bg-white flex items-center justify-between px-8 z-50 shadow-sm">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-black">DL</div>
+            <h1 className="text-2xl font-black text-primary tracking-tighter">DuoLogic</h1>
+          </div>
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={goBack} 
             disabled={state.stage === 'intro'}
-            className="text-muted-foreground"
+            className="text-slate-400 font-bold hover:text-primary transition-colors"
           >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            BACK
           </Button>
-          <h1 className="text-xl font-bold text-primary font-headline tracking-tight">DuoLogic</h1>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <FileText className="w-4 h-4" />
-                View Problem
+              <Button variant="secondary" className="gap-2 rounded-xl font-black px-5 bg-slate-100 hover:bg-slate-200">
+                <FileText className="w-5 h-5" />
+                VIEW TASK
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-xl rounded-3xl p-8">
               <DialogHeader>
-                <DialogTitle>Current Objective</DialogTitle>
+                <DialogTitle className="text-2xl font-black uppercase tracking-tight">Current Objective</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <p className="text-lg leading-relaxed">{state.problem?.description}</p>
-                <div className="flex gap-2 flex-wrap">
-                  {state.problem?.variables.map(v => (
-                    <span key={v} className="px-2 py-1 bg-primary/10 text-primary rounded font-mono text-sm font-bold">
-                      {v}
-                    </span>
-                  ))}
+              <div className="space-y-6 py-4">
+                <div className="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                  <p className="text-xl font-bold leading-relaxed text-slate-800 italic">"{state.problem?.description}"</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Available Inputs</p>
+                  <div className="flex gap-3">
+                    {state.problem?.variables.map(v => (
+                      <span key={v} className="px-5 py-3 bg-primary/10 text-primary rounded-2xl font-mono text-xl font-black border-2 border-primary/20">
+                        {v}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
-          <Button variant="ghost" size="sm" onClick={downloadLogs} className="text-muted-foreground">
-            <Download className="w-4 h-4" />
+          <Button variant="ghost" size="icon" onClick={downloadLogs} className="text-slate-300 hover:text-slate-900">
+            <Download className="w-6 h-6" />
           </Button>
         </div>
       </header>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-1/2 w-full p-4 overflow-hidden">
+        <div className="h-1/2 w-full p-4 overflow-hidden bg-slate-100/50">
           <CommonSpace state={state} updateState={updateState} logEvent={logEvent} />
         </div>
 
-        <div className="h-1/2 w-full flex border-t bg-white">
+        <div className="h-1/2 w-full flex border-t-2 border-slate-200 bg-white">
           <UserTerritory 
             userId={1} 
             state={state} 
             updateState={updateState} 
             logEvent={logEvent} 
-            className="user1-zone w-1/2 p-4"
+            className="user1-zone w-1/2 p-6 border-r-2 border-slate-100"
           />
           <UserTerritory 
             userId={2} 
             state={state} 
             updateState={updateState} 
             logEvent={logEvent} 
-            className="user2-zone w-1/2 p-4"
+            className="user2-zone w-1/2 p-6"
           />
         </div>
       </div>

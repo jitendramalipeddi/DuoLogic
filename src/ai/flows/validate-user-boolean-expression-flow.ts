@@ -42,6 +42,7 @@ export type ValidateBooleanExpressionOutput = z.infer<
 
 const validateUserBooleanExpressionPrompt = ai.definePrompt({
   name: 'validateUserBooleanExpressionPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: {schema: ValidateBooleanExpressionInputSchema},
   output: {schema: ValidateBooleanExpressionOutputSchema},
   prompt: `You are an expert in Boolean algebra and digital logic. Your task is to compare two Boolean expressions and determine if they are logically equivalent. If they are not, you must explain why and provide constructive feedback.

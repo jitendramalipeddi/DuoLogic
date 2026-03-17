@@ -22,21 +22,22 @@ export type GenerateInitialLogicProblemOutput = z.infer<typeof GenerateInitialLo
 
 const prompt = ai.definePrompt({
   name: 'generateInitialLogicProblemPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: GenerateInitialLogicProblemInputSchema },
   output: { schema: GenerateInitialLogicProblemOutputSchema },
-  prompt: `Generate a unique 4-variable digital logic problem. The problem should include:
-- A list of the four input variables (e.g., A, B, C, D).
-- A clear, concise description of the logic problem.
-- A 16-element array representing the desired output (0 or 1) for every possible combination of the four input variables (from 0000 to 1111 in binary order).
+  prompt: `Generate a unique 4-variable digital logic problem for engineering students.
+- List four input variables (e.g., A, B, C, D).
+- Provide a clear description of the logic circuit's required behavior.
+- Provide a 16-element truth table array (outputs only, index 0 is 0000, index 15 is 1111).
 
-Example Output format:
+Example:
 {
   "variables": ["A", "B", "C", "D"],
-  "description": "Design a logic circuit that outputs 1 if exactly two of its four inputs are 1.",
-  "targetTruthTable": [0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0]
+  "description": "Output 1 if the binary value represented by ABCD is a prime number.",
+  "targetTruthTable": [0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0]
 }
 
-Ensure the problem is solvable and distinct. Focus on generating a unique truth table.`,
+Ensure the truth table is logically consistent with the description.`,
 });
 
 const generateInitialLogicProblemFlow = ai.defineFlow(
