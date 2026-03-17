@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { GameState } from '@/hooks/useGameState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from "@/hooks/use-toast";
 import { generateDiscussionPrompts } from '@/ai/flows/generate-discussion-prompts';
 import KMapGrid from './KMapGrid';
 import { CheckCircle2, AlertCircle, Plus } from 'lucide-react';
@@ -19,6 +20,7 @@ interface UserTerritoryProps {
 export default function UserTerritory({ userId, state, updateState, logEvent, className }: UserTerritoryProps) {
   const [expressionInput, setExpressionInput] = useState('');
   const [validating, setValidating] = useState(false);
+  const { toast } = useToast();
 
   const isUser1 = userId === 1;
   const accentColor = isUser1 ? 'bg-red-500' : 'bg-blue-500';
@@ -58,25 +60,42 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   const handleSubmitExpression = async () => {
     setValidating(true);
     logEvent('expression_submit_attempt', { userId, expression: expressionInput });
-    const newExpressions = { ...state.expressions, [userId]: expressionInput };
-    updateState({ expressions: newExpressions });
+    
+    try {
+      const newExpressions = { ...state.expressions, [userId]: expressionInput };
+      updateState({ expressions: newExpressions });
 
-    if (newExpressions[1] && newExpressions[2]) {
-      if (newExpressions[1] === newExpressions[2]) {
-        updateState({ stage: 'simulator' });
-        logEvent('expressions_matched', { expression: expressionInput });
+      if (newExpressions[1] && newExpressions[2]) {
+        if (newExpressions[1] === newExpressions[2]) {
+          updateState({ stage: 'simulator' });
+          logEvent('expressions_matched', { expression: expressionInput });
+        } else {
+          const prompts = await generateDiscussionPrompts({
+            expression1: newExpressions[1],
+            expression2: newExpressions[2]
+          });
+          updateState({ stage: 'discussion', discussionPrompts: prompts.prompts });
+          logEvent('expressions_mismatch', { exp1: newExpressions[1], exp2: newExpressions[2] });
+        }
       } else {
-        const prompts = await generateDiscussionPrompts({
-          expression1: newExpressions[1],
-          expression2: newExpressions[2]
-        });
-        updateState({ stage: 'discussion', discussionPrompts: prompts.prompts });
-        logEvent('expressions_mismatch', { exp1: newExpressions[1], exp2: newExpressions[2] });
+         updateState({ stage: 'equation' });
       }
-    } else {
-       updateState({ stage: 'equation' });
+    } catch (e: any) {
+      console.error("AI Error:", e);
+      const isQuotaError = e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED');
+      toast({
+        variant: "destructive",
+        title: "Expression Submission Error",
+        description: isQuotaError 
+          ? "AI Quota exceeded. Please wait a moment and try again." 
+          : "An error occurred while processing your expression.",
+      });
+      // Reset expression in state if it failed to process discussion prompts
+      const resetExpressions = { ...state.expressions, [userId]: '' };
+      updateState({ expressions: resetExpressions });
+    } finally {
+      setValidating(false);
     }
-    setValidating(false);
   };
 
   const addGate = (type: 'AND' | 'OR' | 'NOT') => {

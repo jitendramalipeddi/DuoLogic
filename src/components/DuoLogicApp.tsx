@@ -6,6 +6,7 @@ import UserTerritory from '@/components/UserTerritory';
 import { useGameState } from '@/hooks/useGameState';
 import { generateInitialLogicProblem } from '@/ai/flows/generate-initial-logic-problem';
 import { Button } from '@/components/ui/button';
+import { useToast } from "@/hooks/use-toast";
 import { 
   Dialog, 
   DialogContent, 
@@ -13,7 +14,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw } from 'lucide-react';
+import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle } from 'lucide-react';
 
 export default function DuoLogicApp() {
   const { 
@@ -24,6 +25,8 @@ export default function DuoLogicApp() {
   } = useGameState();
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     async function init() {
@@ -32,8 +35,17 @@ export default function DuoLogicApp() {
           const problem = await generateInitialLogicProblem();
           updateState({ problem, stage: 'intro' });
           logEvent('problem_initialized', { description: problem.description });
-        } catch (e) {
+        } catch (e: any) {
           console.error("Failed to load problem", e);
+          const message = e.message?.includes('429') 
+            ? "API Quota exceeded. Please try again in a few minutes."
+            : "Failed to initialize logic problem. Please refresh.";
+          setError(message);
+          toast({
+            variant: "destructive",
+            title: "Initialization Error",
+            description: message,
+          });
         }
       }
       setLoading(false);
@@ -56,6 +68,19 @@ export default function DuoLogicApp() {
     return (
       <div className="flex h-screen w-screen items-center justify-center text-primary font-headline text-2xl animate-pulse">
         Initializing DuoLogic...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50 p-6 text-center space-y-4">
+        <AlertTriangle className="w-16 h-16 text-destructive" />
+        <h2 className="text-2xl font-bold">System Error</h2>
+        <p className="text-muted-foreground max-w-md">{error}</p>
+        <Button onClick={() => window.location.reload()} className="gap-2">
+          <RefreshCcw className="w-4 h-4" /> Retry
+        </Button>
       </div>
     );
   }
