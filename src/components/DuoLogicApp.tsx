@@ -37,9 +37,13 @@ export default function DuoLogicApp() {
           logEvent('problem_initialized', { description: problem.description });
         } catch (e: any) {
           console.error("Failed to load problem", e);
-          const message = e.message?.includes('429') 
-            ? "API Quota exceeded. Please try again in a few minutes."
-            : "Failed to initialize logic problem. Please refresh.";
+          const isQuotaError = e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED');
+          const isNotFoundError = e.message?.includes('404') || e.message?.includes('not found');
+          
+          let message = "An error occurred while initializing the logic problem.";
+          if (isQuotaError) message = "API Quota exceeded. Please try again in a few minutes.";
+          if (isNotFoundError) message = "AI model configuration error. Please contact support.";
+          
           setError(message);
           toast({
             variant: "destructive",
@@ -51,7 +55,7 @@ export default function DuoLogicApp() {
       setLoading(false);
     }
     init();
-  }, []);
+  }, [state.problem, updateState, logEvent, toast]);
 
   const downloadLogs = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.logs, null, 2));

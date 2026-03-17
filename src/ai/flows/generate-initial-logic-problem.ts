@@ -20,10 +20,6 @@ const GenerateInitialLogicProblemOutputSchema = z.object({
 });
 export type GenerateInitialLogicProblemOutput = z.infer<typeof GenerateInitialLogicProblemOutputSchema>;
 
-export async function generateInitialLogicProblem(input: GenerateInitialLogicProblemInput): Promise<GenerateInitialLogicProblemOutput> {
-  return generateInitialLogicProblemFlow(input);
-}
-
 const prompt = ai.definePrompt({
   name: 'generateInitialLogicProblemPrompt',
   input: { schema: GenerateInitialLogicProblemInputSchema },
@@ -50,10 +46,19 @@ const generateInitialLogicProblemFlow = ai.defineFlow(
     outputSchema: GenerateInitialLogicProblemOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
-    if (!output) {
-      throw new Error('Failed to generate initial logic problem output.');
+    try {
+      const { output } = await prompt(input);
+      if (!output) {
+        throw new Error('No output returned from GenAI.');
+      }
+      return output;
+    } catch (error: any) {
+      console.error('Error in generateInitialLogicProblemFlow:', error);
+      throw new Error(`Logic Problem Generation failed: ${error.message}`);
     }
-    return output;
   }
 );
+
+export async function generateInitialLogicProblem(input: GenerateInitialLogicProblemInput): Promise<GenerateInitialLogicProblemOutput> {
+  return generateInitialLogicProblemFlow(input);
+}
