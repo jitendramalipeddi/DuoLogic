@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { generateDiscussionPrompts } from '@/ai/flows/generate-discussion-prompts';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus } from 'lucide-react';
 
 interface UserTerritoryProps {
   userId: number;
@@ -28,6 +28,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   const handleAccept = () => {
     const newAccepted = { ...state.accepted, [userId]: true };
     updateState({ accepted: newAccepted });
+    logEvent('user_accepted', { userId });
     if (newAccepted[1] && newAccepted[2]) {
       updateState({ stage: 'truth_table' });
     }
@@ -48,29 +49,46 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     updateState({ userTruthTable: newTable });
     
     if (val !== -1 && val !== state.problem?.targetTruthTable[rowIdx]) {
-      logEvent('error_event', { userId, row: rowIdx, valueEntered: val });
+      logEvent('truth_table_error', { userId, row: rowIdx, value: val });
+    } else {
+      logEvent('truth_table_entry', { userId, row: rowIdx, value: val });
     }
   };
 
   const handleSubmitExpression = async () => {
     setValidating(true);
+    logEvent('expression_submit_attempt', { userId, expression: expressionInput });
     const newExpressions = { ...state.expressions, [userId]: expressionInput };
     updateState({ expressions: newExpressions });
 
     if (newExpressions[1] && newExpressions[2]) {
       if (newExpressions[1] === newExpressions[2]) {
         updateState({ stage: 'simulator' });
+        logEvent('expressions_matched', { expression: expressionInput });
       } else {
         const prompts = await generateDiscussionPrompts({
           expression1: newExpressions[1],
           expression2: newExpressions[2]
         });
         updateState({ stage: 'discussion', discussionPrompts: prompts.prompts });
+        logEvent('expressions_mismatch', { exp1: newExpressions[1], exp2: newExpressions[2] });
       }
     } else {
        updateState({ stage: 'equation' });
     }
     setValidating(false);
+  };
+
+  const addGate = (type: 'AND' | 'OR' | 'NOT') => {
+    const newComp = {
+      id: `gate-${Math.random().toString(36).substr(2, 9)}`,
+      type,
+      userId,
+      x: 150 + Math.random() * 200,
+      y: 100 + Math.random() * 200
+    };
+    updateState({ circuitComponents: [...state.circuitComponents, newComp] });
+    logEvent('add_gate', { userId, type, gateId: newComp.id });
   };
 
   return (
@@ -101,12 +119,6 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             >
               ACCEPT
             </Button>
-          </div>
-        )}
-        {state.stage === 'intro' && state.accepted[userId] && (
-          <div className="flex flex-col items-center justify-center h-full space-y-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="text-sm italic text-muted-foreground">Waiting for peer connection...</p>
           </div>
         )}
 
@@ -148,8 +160,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
               <KMapGrid state={state} updateState={updateState} logEvent={logEvent} activeUserId={userId} />
             </div>
             <div className="w-full space-y-2">
-              <p className="text-[11px] text-center font-medium text-muted-foreground italic">Highlight optimal groupings in the grid above.</p>
-              <Button onClick={() => updateState({ stage: 'equation'})} className="w-full">Next: Derive Equation</Button>
+              <Button onClick={() => updateState({ stage: 'equation'})} className="w-full font-bold">Next: Derive Equation</Button>
             </div>
           </div>
         )}
@@ -173,41 +184,28 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              >
                 {state.expressions[userId] ? 'Awaiting Peer...' : validating ? 'Validating...' : 'Submit Expression'}
              </Button>
-             {state.stage === 'discussion' && (
-               <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-[11px] text-yellow-800 leading-tight">
-                  <span className="font-bold">Conflict Detected:</span> Your expressions differ. Collaborate using the prompts above to resolve.
-               </div>
-             )}
-             {state.stage === 'discussion' && (
-               <Button variant="ghost" size="sm" onClick={() => updateState({ stage: 'simulator' })} className="w-full mt-2 text-xs text-muted-foreground underline">Override & Proceed to Simulator</Button>
-             )}
           </div>
         )}
 
         {state.stage === 'simulator' && (
           <div className="space-y-4">
-             <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Logic Library</h4>
+             <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Component Library</h4>
              <div className="grid grid-cols-3 gap-3">
                 {['AND', 'OR', 'NOT'].map((type) => (
                   <Button
                     key={type}
                     variant="outline"
-                    className={`h-20 flex flex-col gap-2 border-2 hover:border-primary transition-all shadow-sm ${isUser1 ? 'hover:bg-red-50' : 'hover:bg-blue-50'}`}
-                    onClick={() => {
-                      const newComp = {
-                        id: Math.random().toString(),
-                        type: type as any,
-                        userId,
-                        x: 100 + Math.random() * 100,
-                        y: 50 + Math.random() * 50
-                      };
-                      updateState({ circuitComponents: [...state.circuitComponents, newComp] });
-                    }}
+                    className={`h-24 flex flex-col gap-2 border-2 hover:border-primary transition-all shadow-md group ${isUser1 ? 'hover:bg-red-50' : 'hover:bg-blue-50'}`}
+                    onClick={() => addGate(type as any)}
                   >
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">{type} GATE</span>
+                    <Plus className="w-4 h-4 text-slate-400 group-hover:text-primary" />
+                    <span className="text-[10px] font-bold uppercase">{type}</span>
                     <div className={`w-8 h-4 rounded-sm ${type === 'AND' ? 'gate-and' : type === 'OR' ? 'gate-or' : 'gate-not'}`} />
                   </Button>
                 ))}
+             </div>
+             <div className="p-4 bg-muted/30 rounded-lg border border-dashed text-xs text-muted-foreground leading-relaxed">
+               <strong>Collaboration:</strong> Drag gates onto the shared board. Connect pins to build the circuit described in your equation.
              </div>
           </div>
         )}

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 
-export type GameStage = 'intro' | 'truth_table' | 'kmap' | 'equation' | 'discussion' | 'simulator';
+export type GameStage = 'intro' | 'truth_table' | 'kmap' | 'equation' | 'discussion' | 'simulator' | 'finished';
 
 export interface LogicProblem {
   variables: string[];
@@ -26,10 +26,18 @@ export interface WireConnection {
 
 export interface CircuitComponent {
   id: string;
-  type: 'AND' | 'OR' | 'NOT';
+  type: 'AND' | 'OR' | 'NOT' | 'INPUT' | 'LED';
   userId: number;
   x: number;
   y: number;
+  label?: string;
+}
+
+export interface LogEntry {
+  timestamp: string;
+  stage: GameStage;
+  interactionType: string;
+  details: any;
 }
 
 export interface GameState {
@@ -43,6 +51,8 @@ export interface GameState {
   discussionPrompts: string[];
   circuitComponents: CircuitComponent[];
   wires: WireConnection[];
+  logs: LogEntry[];
+  isComplete: boolean;
 }
 
 const initialState: GameState = {
@@ -54,19 +64,39 @@ const initialState: GameState = {
   userGroupings: [],
   expressions: { 1: '', 2: '' },
   discussionPrompts: [],
-  circuitComponents: [],
+  circuitComponents: [
+    { id: 'in-A', type: 'INPUT', userId: 0, x: 50, y: 50, label: 'A' },
+    { id: 'in-B', type: 'INPUT', userId: 0, x: 50, y: 130, label: 'B' },
+    { id: 'in-C', type: 'INPUT', userId: 0, x: 50, y: 210, label: 'C' },
+    { id: 'in-D', type: 'INPUT', userId: 0, x: 50, y: 290, label: 'D' },
+    { id: 'out-LED', type: 'LED', userId: 0, x: 700, y: 170, label: 'LED' },
+  ],
   wires: [],
+  logs: [],
+  isComplete: false,
 };
-
-const STAGE_ORDER: GameStage[] = ['intro', 'truth_table', 'kmap', 'equation', 'discussion', 'simulator'];
 
 export function useGameState() {
   const [state, setState] = useState<GameState>(initialState);
 
+  const logEvent = useCallback((type: string, details: any) => {
+    setState(prev => ({
+      ...prev,
+      logs: [
+        ...prev.logs,
+        {
+          timestamp: new Date().toISOString(),
+          stage: prev.stage,
+          interactionType: type,
+          details,
+        }
+      ]
+    }));
+  }, []);
+
   const updateState = useCallback((updates: Partial<GameState>) => {
     setState(prev => {
       const newState = { ...prev, ...updates };
-      // If stage changed, handle history
       if (updates.stage && updates.stage !== prev.stage) {
         newState.stageHistory = [...prev.stageHistory, prev.stage];
       }
@@ -81,10 +111,6 @@ export function useGameState() {
       const lastStage = newHistory.pop()!;
       return { ...prev, stage: lastStage, stageHistory: newHistory };
     });
-  }, []);
-
-  const logEvent = useCallback((type: string, data: any) => {
-    console.log(`[LOG] ${type}:`, data);
   }, []);
 
   return { state, updateState, goBack, logEvent };

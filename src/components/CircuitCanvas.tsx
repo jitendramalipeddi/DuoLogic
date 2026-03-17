@@ -2,9 +2,9 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GameState, CircuitComponent, WireConnection } from '@/hooks/useGameState';
-import { suggestCircuitImprovements } from '@/ai/flows/suggest-circuit-improvements';
+import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Zap, Info, MousePointer2 } from 'lucide-react';
+import { Zap, Info, MousePointer2, Play, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
 
 interface CircuitCanvasProps {
   state: GameState;
@@ -16,26 +16,12 @@ const GATE_WIDTH = 100;
 const GATE_HEIGHT = 60;
 
 export default function CircuitCanvas({ state, updateState, logEvent }: CircuitCanvasProps) {
-  const [advice, setAdvice] = useState<string | null>(null);
-  const [isCorrect, setIsCorrect] = useState(false);
   const [draggingCompId, setDraggingCompId] = useState<string | null>(null);
   const [wireStart, setWireStart] = useState<{ id: string; pin: number; type: 'in' | 'out' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isLidOn, setIsLidOn] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (state.circuitComponents.length > 0) {
-      const checkEfficiency = async () => {
-        const result = await suggestCircuitImprovements({
-          currentCircuitDescription: state.circuitComponents.map(c => c.type).join(', '),
-          kMapOptimizedGateCount: 3,
-          kMapOptimizedExpression: state.expressions[1]
-        });
-        setAdvice(result.suggestions);
-      };
-      checkEfficiency();
-    }
-  }, [state.circuitComponents.length]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!containerRef.current) return;
@@ -45,18 +31,21 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     setMousePos({ x, y });
 
     if (draggingCompId) {
-      const newComps = state.circuitComponents.map(c => 
-        c.id === draggingCompId ? { ...c, x: x - GATE_WIDTH/2, y: y - GATE_HEIGHT/2 } : c
-      );
-      updateState({ circuitComponents: newComps });
+      const comp = state.circuitComponents.find(c => c.id === draggingCompId);
+      if (comp && comp.userId !== 0) {
+        const newComps = state.circuitComponents.map(c => 
+          c.id === draggingCompId ? { ...c, x: x - GATE_WIDTH/2, y: y - GATE_HEIGHT/2 } : c
+        );
+        updateState({ circuitComponents: newComps });
+      }
     }
   };
 
   const handlePinClick = (id: string, pin: number, type: 'in' | 'out') => {
     if (!wireStart) {
       setWireStart({ id, pin, type });
+      logEvent('wire_start', { id, pin, type });
     } else {
-      // Connect if compatible
       if (wireStart.id !== id && wireStart.type !== type) {
         const from = wireStart.type === 'out' ? wireStart : { id, pin, type };
         const to = wireStart.type === 'in' ? wireStart : { id, pin, type };
@@ -69,6 +58,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
           toPin: to.pin
         };
         updateState({ wires: [...state.wires, newWire] });
+        logEvent('wire_connect', { fromId: from.id, toId: to.id });
       }
       setWireStart(null);
     }
@@ -81,11 +71,79 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     if (type === 'out') {
       return { x: comp.x + GATE_WIDTH, y: comp.y + GATE_HEIGHT / 2 };
     } else {
-      // 2 inputs for AND/OR, 1 for NOT
-      const inputCount = comp.type === 'NOT' ? 1 : 2;
+      const inputCount = comp.type === 'NOT' ? 1 : comp.type === 'LED' ? 1 : 2;
       const spacing = GATE_HEIGHT / (inputCount + 1);
       return { x: comp.x, y: comp.y + spacing * (pinIndex + 1) };
     }
+  };
+
+  const runSimulation = () => {
+    if (!state.problem) return;
+    
+    let allMatch = true;
+    const results = [];
+
+    for (let i = 0; i < 16; i++) {
+      const inputs = {
+        'in-A': (i >> 3) & 1,
+        'in-B': (i >> 2) & 1,
+        'in-C': (i >> 1) & 1,
+        'in-D': (i >> 0) & 1,
+      };
+
+      const gateValues: Record<string, number> = { ...inputs };
+      const resolved = new Set(Object.keys(inputs));
+      let changed = true;
+      let iterations = 0;
+
+      while (changed && iterations < 20) {
+        changed = false;
+        iterations++;
+
+        state.circuitComponents.forEach(gate => {
+          if (gate.type === 'INPUT' || gate.type === 'LED') return;
+          
+          const inWires = state.wires.filter(w => w.toId === gate.id);
+          const inValues = inWires.map(w => gateValues[w.fromId]).filter(v => v !== undefined);
+
+          let output: number | undefined;
+          if (gate.type === 'AND' && inValues.length === 2) output = inValues[0] && inValues[1];
+          if (gate.type === 'OR' && inValues.length === 2) output = inValues[0] || inValues[1];
+          if (gate.type === 'NOT' && inValues.length === 1) output = inValues[0] === 0 ? 1 : 0;
+
+          if (output !== undefined && gateValues[gate.id] !== output) {
+            gateValues[gate.id] = output;
+            resolved.add(gate.id);
+            changed = true;
+          }
+        });
+
+        const ledWire = state.wires.find(w => w.toId === 'out-LED');
+        if (ledWire && gateValues[ledWire.fromId] !== undefined) {
+          gateValues['out-LED'] = gateValues[ledWire.fromId];
+        }
+      }
+
+      const actual = gateValues['out-LED'] ?? 0;
+      const expected = state.problem.targetTruthTable[i];
+      if (actual !== expected) allMatch = false;
+      results.push({ i, actual, expected });
+    }
+
+    if (allMatch) {
+      setTestResult({ success: true, message: "Perfect! The circuit logic matches the target truth table." });
+      setIsLidOn(true);
+      logEvent('simulation_success', { results });
+    } else {
+      setTestResult({ success: false, message: "Logic Mismatch. The LED behavior doesn't match the required truth table. Discuss with your partner where the signal path might be wrong." });
+      setIsLidOn(false);
+      logEvent('simulation_error', { results, error: 'Logic Mismatch' });
+    }
+  };
+
+  const handleFinalSubmit = () => {
+    updateState({ stage: 'finished', isComplete: true });
+    logEvent('final_submission', { success: true });
   };
 
   return (
@@ -102,19 +160,26 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       </div>
 
       <div className="absolute top-4 left-4 z-30 space-y-2 max-w-sm pointer-events-none">
-        <div className={`p-4 rounded-xl shadow-xl flex items-center space-x-3 pointer-events-auto ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-900 text-white opacity-95'}`}>
-          <Zap className={`w-8 h-8 ${isCorrect ? 'animate-pulse text-yellow-300' : 'text-slate-400'}`} />
-          <div>
-            <div className="font-black text-lg tracking-tighter">CIRCUIT OUTPUT</div>
-            <div className="text-[10px] font-bold uppercase tracking-widest opacity-70">{isCorrect ? 'Logic High' : 'Logic Low / No Output'}</div>
-          </div>
+        <div className="flex gap-2 pointer-events-auto">
+          <Button size="lg" onClick={runSimulation} className="bg-primary hover:bg-primary/90 font-bold shadow-xl gap-2">
+            <Play className="w-4 h-4" /> TEST CIRCUIT
+          </Button>
+          {testResult?.success && (
+            <Button size="lg" onClick={handleFinalSubmit} className="bg-green-600 hover:bg-green-700 font-bold shadow-xl gap-2">
+              <CheckCircle2 className="w-4 h-4" /> FINISH TASK
+            </Button>
+          )}
         </div>
         
-        {advice && (
-          <Alert className="bg-white/95 border-primary shadow-lg pointer-events-auto">
-            <Info className="h-4 w-4 text-primary" />
-            <AlertTitle className="text-xs font-bold uppercase tracking-wider text-primary">Efficiency Tips</AlertTitle>
-            <AlertDescription className="text-[11px] leading-relaxed text-slate-600">{advice}</AlertDescription>
+        {testResult && (
+          <Alert className={`${testResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} shadow-lg pointer-events-auto animate-in slide-in-from-top-4`}>
+            {testResult.success ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <AlertTriangle className="h-4 w-4 text-red-600" />}
+            <AlertTitle className={`text-xs font-bold uppercase tracking-wider ${testResult.success ? 'text-green-800' : 'text-red-800'}`}>
+              {testResult.success ? 'Success' : 'Correction Needed'}
+            </AlertTitle>
+            <AlertDescription className="text-[11px] leading-relaxed text-slate-600">
+              {testResult.message}
+            </AlertDescription>
           </Alert>
         )}
       </div>
@@ -129,7 +194,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
               key={wire.id}
               d={`M ${start.x} ${start.y} C ${start.x + 50} ${start.y}, ${end.x - 50} ${end.y}, ${end.x} ${end.y}`}
               stroke="#3b82f6"
-              strokeWidth="3"
+              strokeWidth="4"
               fill="none"
               strokeLinecap="round"
             />
@@ -150,56 +215,55 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       {state.circuitComponents.map((comp) => (
         <div 
           key={comp.id}
-          className={`absolute group shadow-lg border-2 rounded-lg transition-shadow hover:shadow-2xl ${
+          className={`absolute group shadow-lg border-2 rounded-lg transition-all ${
+            comp.userId === 0 ? 'border-slate-400 bg-slate-100' :
             comp.userId === 1 ? 'border-red-400/50' : 'border-blue-400/50'
           } ${
-            comp.type === 'AND' ? 'gate-and' : comp.type === 'OR' ? 'gate-or' : 'gate-not'
-          } text-white`}
+            comp.type === 'AND' ? 'gate-and' : comp.type === 'OR' ? 'gate-or' : 
+            comp.type === 'NOT' ? 'gate-not' : 'bg-white'
+          } ${comp.type === 'LED' && isLidOn ? 'ring-4 ring-yellow-400 shadow-yellow-200' : ''}`}
           style={{ top: comp.y, left: comp.x, width: `${GATE_WIDTH}px`, height: `${GATE_HEIGHT}px` }}
         >
-          {/* Component Header/Drag Handle */}
           <div 
-            className="h-1/3 w-full bg-black/20 flex items-center justify-between px-2 cursor-grab active:cursor-grabbing"
+            className={`h-1/3 w-full flex items-center justify-between px-2 ${comp.userId === 0 ? 'bg-slate-200' : 'bg-black/20'} cursor-grab active:cursor-grabbing text-slate-800`}
             onMouseDown={() => setDraggingCompId(comp.id)}
           >
-            <span className="text-[8px] font-bold opacity-70">U{comp.userId}</span>
-            <MousePointer2 className="w-2 h-2 opacity-50" />
+            <span className="text-[8px] font-bold opacity-70">
+              {comp.userId === 0 ? 'FIXED' : `U${comp.userId}`}
+            </span>
+            {comp.userId !== 0 && <MousePointer2 className="w-2 h-2 opacity-50" />}
           </div>
 
-          <div className="h-2/3 flex items-center justify-center font-black text-sm tracking-widest">
-            {comp.type}
+          <div className={`h-2/3 flex flex-col items-center justify-center ${comp.userId === 0 ? 'text-slate-800' : 'text-white'}`}>
+             <span className="font-black text-xs tracking-widest">{comp.type}</span>
+             {comp.label && <span className="text-[10px] font-bold opacity-70">{comp.label}</span>}
+             {comp.type === 'LED' && <Lightbulb className={`w-4 h-4 mt-1 ${isLidOn ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />}
           </div>
 
-          {/* Output Pin */}
-          <button 
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 border-2 border-white hover:scale-125 transition-transform z-20"
-            onClick={(e) => { e.stopPropagation(); handlePinClick(comp.id, 0, 'out'); }}
-          />
+          {/* Pin Buttons */}
+          {(comp.type !== 'LED') && (
+            <button 
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-5 h-5 rounded-full bg-slate-800 border-2 border-white hover:scale-125 transition-transform z-20"
+              onClick={(e) => { e.stopPropagation(); handlePinClick(comp.id, 0, 'out'); }}
+            />
+          )}
 
-          {/* Input Pins */}
-          {(comp.type === 'NOT' ? [0] : [0, 1]).map((pinIdx) => {
-            const spacing = GATE_HEIGHT / (comp.type === 'NOT' ? 2 : 3);
-            return (
-              <button 
-                key={pinIdx}
-                className="absolute left-0 w-4 h-4 rounded-full bg-slate-800 border-2 border-white hover:scale-125 transition-transform z-20 -translate-x-1/2"
-                style={{ top: spacing * (pinIdx + 1) }}
-                onClick={(e) => { e.stopPropagation(); handlePinClick(comp.id, pinIdx, 'in'); }}
-              />
-            );
-          })}
+          {(comp.type !== 'INPUT') && (
+            (comp.type === 'NOT' || comp.type === 'LED' ? [0] : [0, 1]).map((pinIdx) => {
+              const inputCount = comp.type === 'NOT' || comp.type === 'LED' ? 1 : 2;
+              const spacing = GATE_HEIGHT / (inputCount + 1);
+              return (
+                <button 
+                  key={pinIdx}
+                  className="absolute left-0 w-5 h-5 rounded-full bg-slate-800 border-2 border-white hover:scale-125 transition-transform z-20 -translate-x-1/2"
+                  style={{ top: spacing * (pinIdx + 1) }}
+                  onClick={(e) => { e.stopPropagation(); handlePinClick(comp.id, pinIdx, 'in'); }}
+                />
+              );
+            })
+          )}
         </div>
       ))}
-
-      {state.circuitComponents.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 pointer-events-none p-12 text-center">
-          <div className="w-24 h-24 border-4 border-dashed rounded-full mb-6 opacity-20 flex items-center justify-center">
-            <Zap className="w-12 h-12" />
-          </div>
-          <p className="text-xl font-headline font-semibold">Ready for Construction</p>
-          <p className="max-w-xs text-sm mt-2 opacity-60">Add gates from your territory and connect pins to build your logic circuit.</p>
-        </div>
-      )}
     </div>
   );
 }
