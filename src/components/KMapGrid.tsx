@@ -7,17 +7,17 @@ interface KMapGridProps {
   state: GameState;
   updateState: (updates: Partial<GameState>) => void;
   logEvent: (type: string, data: any) => void;
+  activeUserId?: number; // If provided, only allow this user to interact
+  readOnly?: boolean;
 }
 
-export default function KMapGrid({ state, updateState, logEvent }: KMapGridProps) {
+export default function KMapGrid({ state, updateState, logEvent, activeUserId, readOnly = false }: KMapGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Grey code indices for 4-variable K-map (00, 01, 11, 10)
   const greyOrder = [0, 1, 3, 2];
   
   const getCellIndex = (r: number, c: number) => {
-    // Map grid row/col to binary input index
-    // Rows: AB, Cols: CD
     const rowGrey = greyOrder[r];
     const colGrey = greyOrder[c];
     return (rowGrey << 2) | colGrey;
@@ -26,13 +26,13 @@ export default function KMapGrid({ state, updateState, logEvent }: KMapGridProps
   const [selectionStart, setSelectionStart] = useState<{row: number, col: number} | null>(null);
 
   const handleTouchStart = (r: number, c: number) => {
-     setSelectionStart({ row: r, col: c });
+    if (readOnly) return;
+    setSelectionStart({ row: r, col: c });
   };
 
   const handleTouchEnd = (r: number, c: number) => {
-    if (!selectionStart) return;
+    if (!selectionStart || readOnly) return;
     
-    // Create grouping from start to end (simplified to rectangle)
     const minRow = Math.min(selectionStart.row, r);
     const maxRow = Math.max(selectionStart.row, r);
     const minCol = Math.min(selectionStart.col, c);
@@ -47,29 +47,35 @@ export default function KMapGrid({ state, updateState, logEvent }: KMapGridProps
 
     const newGrouping: KMapGrouping = {
       id: Math.random().toString(),
-      userId: 1, // Logic would normally detect which user touched, for demo we alternate or assign
+      userId: activeUserId || 1,
       cells
     };
 
     updateState({ userGroupings: [...state.userGroupings, newGrouping] });
-    logEvent('touch_event', { start: selectionStart, end: {r, c}, type: 'group_creation' });
+    logEvent('group_creation', { userId: activeUserId, cells });
     setSelectionStart(null);
   };
 
   return (
     <div className="flex flex-col items-center space-y-4 select-none">
       <div className="flex space-x-8">
-        <div className="flex items-center space-x-2"><div className="w-4 h-4 bg-red-400 opacity-50 border-2 border-red-500 rounded"></div><span className="text-xs">U1 Groups</span></div>
-        <div className="flex items-center space-x-2"><div className="w-4 h-4 bg-blue-400 opacity-50 border-2 border-blue-500 rounded"></div><span className="text-xs">U2 Groups</span></div>
+        <div className="flex items-center space-x-2">
+          <div className="w-4 h-4 bg-red-400 opacity-50 border-2 border-red-500 rounded"></div>
+          <span className="text-xs font-semibold">User 1</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-4 h-4 bg-blue-400 opacity-50 border-2 border-blue-500 rounded"></div>
+          <span className="text-xs font-semibold">User 2</span>
+        </div>
       </div>
       
       <div className="relative p-8 bg-gray-50 border-2 border-gray-200 rounded-xl shadow-inner" ref={containerRef}>
         {/* Row labels */}
-        <div className="absolute left-0 top-8 bottom-8 flex flex-col justify-around text-xs font-mono -translate-x-full pr-2">
+        <div className="absolute left-0 top-8 bottom-8 flex flex-col justify-around text-[10px] font-mono -translate-x-full pr-2 text-muted-foreground">
           <span>AB=00</span><span>01</span><span>11</span><span>10</span>
         </div>
         {/* Col labels */}
-        <div className="absolute top-0 left-8 right-8 flex justify-around text-xs font-mono -translate-y-full pb-2">
+        <div className="absolute top-0 left-8 right-8 flex justify-around text-[10px] font-mono -translate-y-full pb-2 text-muted-foreground">
           <span>CD=00</span><span>01</span><span>11</span><span>10</span>
         </div>
 
@@ -81,7 +87,7 @@ export default function KMapGrid({ state, updateState, logEvent }: KMapGridProps
               return (
                 <div 
                   key={`${r}-${c}`}
-                  className="w-16 h-16 border border-gray-200 flex items-center justify-center text-xl font-bold font-mono hover:bg-muted/30 cursor-crosshair relative z-10"
+                  className="w-14 h-14 border border-gray-200 flex items-center justify-center text-lg font-bold font-mono hover:bg-muted/30 cursor-crosshair relative z-10"
                   onMouseDown={() => handleTouchStart(r, c)}
                   onMouseUp={() => handleTouchEnd(r, c)}
                 >
@@ -94,7 +100,7 @@ export default function KMapGrid({ state, updateState, logEvent }: KMapGridProps
 
         {/* Grouping Overlays */}
         <div className="absolute inset-8 pointer-events-none">
-          {state.userGroupings.map((g, i) => {
+          {state.userGroupings.map((g) => {
             const minRow = Math.min(...g.cells.map(c => c.row));
             const maxRow = Math.max(...g.cells.map(c => c.row));
             const minCol = Math.min(...g.cells.map(c => c.col));
@@ -110,7 +116,7 @@ export default function KMapGrid({ state, updateState, logEvent }: KMapGridProps
             return (
               <div 
                 key={g.id}
-                className={`absolute border-2 rounded ${g.userId === 1 ? 'bg-red-400/30 border-red-500' : 'bg-blue-400/30 border-blue-500'}`}
+                className={`absolute border-2 rounded-md ${g.userId === 1 ? 'bg-red-400/20 border-red-500' : 'bg-blue-400/20 border-blue-500'}`}
                 style={style}
               />
             );
