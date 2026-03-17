@@ -1,8 +1,7 @@
 'use server';
 /**
  * @fileOverview This file implements a Genkit flow to generate discussion prompts
- * when two users' boolean expressions do not match, helping them identify
- * reasoning divergences.
+ * when two users' boolean expressions do not match.
  *
  * - generateDiscussionPrompts - A function that handles the generation of discussion prompts.
  * - GenerateDiscussionPromptsInput - The input type for the generateDiscussionPrompts function.
@@ -23,11 +22,12 @@ const GenerateDiscussionPromptsOutputSchema = z.object({
 });
 export type GenerateDiscussionPromptsOutput = z.infer<typeof GenerateDiscussionPromptsOutputSchema>;
 
-export async function generateDiscussionPrompts(
-  input: GenerateDiscussionPromptsInput
-): Promise<GenerateDiscussionPromptsOutput> {
-  return generateDiscussionPromptsFlow(input);
-}
+const FALLBACK_PROMPTS = [
+  "Your expressions don't match. Compare your K-map groupings to see where you differ.",
+  "Check your Boolean algebra simplification steps together.",
+  "Look at the truth table again and verify your minterms.",
+  "Discuss how you handled 'don't care' conditions if there were any."
+];
 
 const discussionPromptsPrompt = ai.definePrompt({
   name: 'discussionPromptsPrompt',
@@ -39,7 +39,7 @@ const discussionPromptsPrompt = ai.definePrompt({
 Two students have independently derived Boolean expressions for the same logic problem, but their expressions do not match.
 Your task is to provide targeted questions and discussion prompts to guide them in finding where their reasoning diverged and reaching a consensus.
 
-Do NOT provide the correct answer or directly correct their expressions. Instead, ask open-ended questions that encourage critical thinking, comparison, and analysis of their own steps.
+Do NOT provide the correct answer or directly correct their expressions. Instead, ask open-ended questions that encourage critical thinking.
 
 Focus on aspects like:
 - How they derived specific terms.
@@ -54,6 +54,12 @@ User 2's expression: {{{expression2}}}
 Generate at least 3 distinct discussion prompts.`,
 });
 
+export async function generateDiscussionPrompts(
+  input: GenerateDiscussionPromptsInput
+): Promise<GenerateDiscussionPromptsOutput> {
+  return generateDiscussionPromptsFlow(input);
+}
+
 const generateDiscussionPromptsFlow = ai.defineFlow(
   {
     name: 'generateDiscussionPromptsFlow',
@@ -61,7 +67,15 @@ const generateDiscussionPromptsFlow = ai.defineFlow(
     outputSchema: GenerateDiscussionPromptsOutputSchema,
   },
   async input => {
-    const {output} = await discussionPromptsPrompt(input);
-    return output!;
+    try {
+      const {output} = await discussionPromptsPrompt(input);
+      if (!output || !output.prompts) {
+        return { prompts: FALLBACK_PROMPTS };
+      }
+      return output;
+    } catch (error) {
+      console.error('Discussion prompt generation failed:', error);
+      return { prompts: FALLBACK_PROMPTS };
+    }
   }
 );

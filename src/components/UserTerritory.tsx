@@ -70,11 +70,19 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
           updateState({ stage: 'simulator' });
           logEvent('expressions_matched', { expression: expressionInput });
         } else {
-          const prompts = await generateDiscussionPrompts({
+          // Robust AI call
+          const response = await generateDiscussionPrompts({
             expression1: newExpressions[1],
             expression2: newExpressions[2]
           });
-          updateState({ stage: 'discussion', discussionPrompts: prompts.prompts });
+          
+          const prompts = response?.prompts || [
+            "Your expressions don't match. Compare your K-map groupings to see where you differ.",
+            "Check your Boolean algebra simplification steps together.",
+            "Look at the truth table again and verify your minterms."
+          ];
+          
+          updateState({ stage: 'discussion', discussionPrompts: prompts });
           logEvent('expressions_mismatch', { exp1: newExpressions[1], exp2: newExpressions[2] });
         }
       } else {
@@ -87,11 +95,18 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         variant: "destructive",
         title: "AI Processing Error",
         description: isQuotaError 
-          ? "API Quota exceeded. Please wait a moment and try again." 
-          : "The AI assistant is temporarily unavailable.",
+          ? "API Quota exceeded. Using generic discussion prompts." 
+          : "The AI assistant is temporarily unavailable. Discuss your differences manually.",
       });
-      const resetExpressions = { ...state.expressions, [userId]: '' };
-      updateState({ expressions: resetExpressions });
+      
+      // Fallback behavior: move to discussion anyway with defaults if both submitted
+      const newExpressions = { ...state.expressions, [userId]: expressionInput };
+      if (newExpressions[1] && newExpressions[2]) {
+         updateState({ 
+           stage: 'discussion', 
+           discussionPrompts: ["Manual comparison required: User 1 and User 2 expressions differ. Please discuss."] 
+         });
+      }
     } finally {
       setValidating(false);
     }

@@ -20,6 +20,19 @@ const GenerateInitialLogicProblemOutputSchema = z.object({
 });
 export type GenerateInitialLogicProblemOutput = z.infer<typeof GenerateInitialLogicProblemOutputSchema>;
 
+const FALLBACK_PROBLEMS = [
+  {
+    variables: ["A", "B", "C", "D"],
+    description: "Output 1 if the binary number (A is MSB, D is LSB) is greater than 7 and even.",
+    targetTruthTable: [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0]
+  },
+  {
+    variables: ["A", "B", "C", "D"],
+    description: "Output 1 if at least three of the inputs are high (logic 1).",
+    targetTruthTable: [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1]
+  }
+];
+
 const prompt = ai.definePrompt({
   name: 'generateInitialLogicProblemPrompt',
   model: 'googleai/gemini-1.5-flash',
@@ -40,19 +53,6 @@ Example:
 Ensure the truth table is logically consistent with the description.`,
 });
 
-const FALLBACK_PROBLEMS = [
-  {
-    variables: ["A", "B", "C", "D"],
-    description: "Output 1 if the binary number (A is MSB, D is LSB) is greater than 7 and even.",
-    targetTruthTable: [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0]
-  },
-  {
-    variables: ["A", "B", "C", "D"],
-    description: "Output 1 if at least three of the inputs are high (logic 1).",
-    targetTruthTable: [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1]
-  }
-];
-
 export async function generateInitialLogicProblem(input: GenerateInitialLogicProblemInput): Promise<GenerateInitialLogicProblemOutput> {
   return generateInitialLogicProblemFlow(input);
 }
@@ -72,7 +72,6 @@ const generateInitialLogicProblemFlow = ai.defineFlow(
       return output;
     } catch (error: any) {
       console.error('Logic Problem Generation failed, using fallback:', error.message);
-      // Return a random fallback problem if AI fails
       return FALLBACK_PROBLEMS[Math.floor(Math.random() * FALLBACK_PROBLEMS.length)];
     }
   }
