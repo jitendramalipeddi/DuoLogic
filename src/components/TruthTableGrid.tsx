@@ -25,20 +25,18 @@ export default function TruthTableGrid({ state }: TruthTableGridProps) {
           {Array.from({ length: 16 }).map((_, i) => {
             const binary = i.toString(2).padStart(4, '0').split('');
             const userVal = state.userTruthTable[i];
-            const targetVal = state.problem?.targetTruthTable[i];
-            const isError = userVal !== -1 && userVal !== targetVal;
             
             return (
-              <TableRow key={i} className={isError ? 'bg-red-50' : ''}>
+              <TableRow key={i}>
                 <TableCell className="font-mono text-muted-foreground">{i}</TableCell>
                 {binary.map((b, idx) => (
                   <TableCell key={idx} className="text-center font-mono">{b}</TableCell>
                 ))}
                 <TableCell className="text-center">
-                  <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg border-2 ${
-                    userVal === -1 ? 'border-dashed border-gray-200' :
-                    isError ? 'border-red-500 bg-red-100 text-red-600 font-bold' :
-                    'border-green-500 bg-green-100 text-green-600 font-bold'
+                  <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors ${
+                    userVal === -1 
+                      ? 'border-dashed border-slate-200' 
+                      : 'border-slate-400 bg-slate-50 text-slate-900 font-bold'
                   }`}>
                     {userVal === -1 ? '' : userVal}
                   </div>
