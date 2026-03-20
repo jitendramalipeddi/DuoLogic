@@ -5,9 +5,11 @@ import { GameState } from '@/hooks/useGameState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
-import { generateDiscussionPrompts } from '@/ai/flows/generate-discussion-prompts';
+import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
+import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface UserTerritoryProps {
   userId: number;
@@ -20,6 +22,7 @@ interface UserTerritoryProps {
 export default function UserTerritory({ userId, state, updateState, logEvent, className }: UserTerritoryProps) {
   const [expressionInput, setExpressionInput] = useState('');
   const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const isUser1 = userId === 1;
@@ -36,12 +39,12 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     }
   };
 
-  const isSectionComplete = useMemo(() => {
+  const isSectionFilled = useMemo(() => {
     const range = isUser1 ? [0, 1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14, 15];
     return range.every(idx => state.userTruthTable[idx] !== -1);
   }, [state.userTruthTable, isUser1]);
 
-  const bothTruthTablesComplete = useMemo(() => {
+  const bothTruthTablesFilled = useMemo(() => {
     return state.userTruthTable.every(val => val !== -1);
   }, [state.userTruthTable]);
 
@@ -49,64 +52,90 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     const newTable = [...state.userTruthTable];
     newTable[rowIdx] = val;
     updateState({ userTruthTable: newTable });
+    setValidationError(null);
+    logEvent('truth_table_entry', { userId, row: rowIdx, value: val });
+  };
+
+  const validateTruthTable = () => {
+    if (!state.problem) return;
+    const errors = state.userTruthTable.filter((val, idx) => val !== -1 && val !== state.problem!.targetTruthTable[idx]);
     
-    if (val !== -1 && val !== state.problem?.targetTruthTable[rowIdx]) {
-      logEvent('truth_table_error', { userId, row: rowIdx, value: val });
+    if (errors.length > 0) {
+      setValidationError("Some truth table entries are incorrect. Please review the problem description and your logic.");
+      logEvent('truth_table_validation_fail', { errorCount: errors.length });
     } else {
-      logEvent('truth_table_entry', { userId, row: rowIdx, value: val });
+      setValidationError(null);
+      updateState({ stage: 'kmap' });
+      logEvent('truth_table_validation_success', {});
+      toast({ title: "Truth Table Verified", description: "All entries match the target logic." });
+    }
+  };
+
+  const validateKMapGroupings = async () => {
+    if (!state.problem) return;
+    setValidating(true);
+    setValidationError(null);
+
+    // Convert flat array to 4x4 grid
+    const grid: any[][] = [];
+    for (let i = 0; i < 4; i++) {
+      grid.push(state.userTruthTable.slice(i * 4, (i + 1) * 4).map(v => v.toString()));
+    }
+
+    try {
+      const result = await adviseKMapGroupingOptimization({
+        kMapGrid: grid,
+        userGroupings: state.userGroupings.map(g => g.cells)
+      });
+
+      if (result.isOptimal) {
+        updateState({ stage: 'equation' });
+        logEvent('kmap_validation_success', {});
+        toast({ title: "K-Map Optimized", description: "Your groupings are optimal Prime Implicants." });
+      } else {
+        setValidationError(result.feedback || "Your K-map groupings are not optimal. Check for prime implicants or redundant groups.");
+        logEvent('kmap_validation_fail', { feedback: result.feedback });
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Validation Error", description: "Could not verify K-map groupings. Please try again." });
+    } finally {
+      setValidating(false);
     }
   };
 
   const handleSubmitExpression = async () => {
+    if (!state.problem) return;
     setValidating(true);
+    setValidationError(null);
     logEvent('expression_submit_attempt', { userId, expression: expressionInput });
     
     try {
-      const newExpressions = { ...state.expressions, [userId]: expressionInput };
-      updateState({ expressions: newExpressions });
+      // For MVP, we use the fallback problem's equation if it exists, or just a simple check
+      // Ideally, we'd have an "idealEquation" in the problem object
+      const result = await validateUserBooleanExpression({
+        userExpression: expressionInput,
+        idealExpression: state.problem.hints.equation.level3, // Level 3 hint often contains the answer
+        variables: state.problem.variables
+      });
 
-      if (newExpressions[1] && newExpressions[2]) {
-        if (newExpressions[1].trim() === newExpressions[2].trim()) {
+      if (result.isCorrect) {
+        const newExpressions = { ...state.expressions, [userId]: expressionInput };
+        updateState({ expressions: newExpressions });
+        
+        if (newExpressions[1] && newExpressions[2]) {
           updateState({ stage: 'simulator' });
           logEvent('expressions_matched', { expression: expressionInput });
-        } else {
-          // Robust AI call
-          const response = await generateDiscussionPrompts({
-            expression1: newExpressions[1],
-            expression2: newExpressions[2]
-          });
-          
-          const prompts = response?.prompts || [
-            "Your expressions don't match. Compare your K-map groupings to see where you differ.",
-            "Check your Boolean algebra simplification steps together.",
-            "Look at the truth table again and verify your minterms."
-          ];
-          
-          updateState({ stage: 'discussion', discussionPrompts: prompts });
-          logEvent('expressions_mismatch', { exp1: newExpressions[1], exp2: newExpressions[2] });
         }
       } else {
-         updateState({ stage: 'equation' });
+        setValidationError(result.feedback || "The equation does not logically match the truth table.");
+        logEvent('expression_validation_fail', { feedback: result.feedback });
       }
     } catch (e: any) {
-      console.error("AI Error:", e);
-      const isQuotaError = e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED');
       toast({
         variant: "destructive",
-        title: "AI Processing Error",
-        description: isQuotaError 
-          ? "API Quota exceeded. Using generic discussion prompts." 
-          : "The AI assistant is temporarily unavailable. Discuss your differences manually.",
+        title: "Validation Error",
+        description: "The logic engine is currently busy. Please try again.",
       });
-      
-      // Fallback behavior: move to discussion anyway with defaults if both submitted
-      const newExpressions = { ...state.expressions, [userId]: expressionInput };
-      if (newExpressions[1] && newExpressions[2]) {
-         updateState({ 
-           stage: 'discussion', 
-           discussionPrompts: ["Manual comparison required: User 1 and User 2 expressions differ. Please discuss."] 
-         });
-      }
     } finally {
       setValidating(false);
     }
@@ -133,10 +162,10 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             PARTNER {userId}
           </h3>
         </div>
-        {isSectionComplete && state.stage === 'truth_table' && (
+        {isSectionFilled && state.stage === 'truth_table' && (
           <div className="flex items-center text-green-600 text-[10px] font-bold">
             <CheckCircle2 className="w-3 h-3 mr-1" />
-            READY
+            FILLED
           </div>
         )}
       </div>
@@ -183,11 +212,22 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                 </div>
               ))}
             </div>
-            {bothTruthTablesComplete ? (
-               <Button onClick={() => updateState({ stage: 'kmap' })} className="w-full h-14 text-lg font-black bg-primary shadow-xl rounded-xl">PROCEED TO K-MAP</Button>
-            ) : isSectionComplete ? (
+            
+            {validationError && (
+              <Alert variant="destructive" className="bg-red-50 border-red-200">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Review Needed</AlertTitle>
+                <AlertDescription className="text-xs">{validationError}</AlertDescription>
+              </Alert>
+            )}
+
+            {bothTruthTablesFilled ? (
+               <Button onClick={validateTruthTable} className="w-full h-14 text-lg font-black bg-primary shadow-xl rounded-xl gap-2">
+                 <ShieldCheck className="w-5 h-5" /> VALIDATE & PROCEED
+               </Button>
+            ) : isSectionFilled ? (
               <div className="p-4 bg-slate-50 rounded-xl text-sm font-bold text-center border-2 border-dashed border-slate-200 text-slate-400 italic">
-                Waiting for Peer...
+                Waiting for Peer to complete their section...
               </div>
             ) : null}
           </div>
@@ -198,15 +238,27 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             <div className="scale-75 origin-top">
               <KMapGrid state={state} updateState={updateState} logEvent={logEvent} activeUserId={userId} />
             </div>
-            <Button onClick={() => updateState({ stage: 'equation'})} className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl">NEXT: DEFINE EQUATION</Button>
+            {validationError && (
+              <Alert variant="destructive" className="bg-red-50 border-red-200 w-full">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">{validationError}</AlertDescription>
+              </Alert>
+            )}
+            <Button 
+              onClick={validateKMapGroupings} 
+              disabled={validating}
+              className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
+            >
+              {validating ? "VERIFYING OPTIMALITY..." : "VALIDATE GROUPINGS"}
+            </Button>
           </div>
         )}
 
         {(state.stage === 'equation' || state.stage === 'discussion') && (
           <div className="space-y-4 p-6 bg-white rounded-2xl border-4 border-slate-50 shadow-inner">
              <div className="flex items-center gap-2 mb-2">
-               <AlertCircle className={`w-5 h-5 ${textColor}`} />
-               <h4 className="font-black text-sm uppercase tracking-tighter">Derived Equation</h4>
+               <HelpCircle className={`w-5 h-5 ${textColor}`} />
+               <h4 className="font-black text-sm uppercase tracking-tighter">Final Equation</h4>
              </div>
              <Input 
                 value={expressionInput}
@@ -215,12 +267,18 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                 className="font-mono text-2xl h-16 border-2 border-slate-100 focus-visible:ring-offset-2 rounded-xl text-center"
                 disabled={state.expressions[userId] !== ''}
              />
+             {validationError && (
+              <Alert variant="destructive" className="bg-red-50 border-red-200">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">{validationError}</AlertDescription>
+              </Alert>
+            )}
              <Button 
                 onClick={handleSubmitExpression} 
                 disabled={validating || state.expressions[userId] !== ''}
-                className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'}`}
+                className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2`}
              >
-                {state.expressions[userId] ? 'AWAITING PEER...' : validating ? 'VALIDATING...' : 'SUBMIT'}
+                {state.expressions[userId] ? 'AWAITING PEER...' : validating ? 'ANALYZING...' : 'SUBMIT SOLUTION'}
              </Button>
           </div>
         )}
@@ -245,7 +303,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              <div className="p-4 bg-muted/20 rounded-2xl border-2 border-dashed border-slate-200 flex gap-3 items-start">
                <Info className="w-5 h-5 text-slate-400 shrink-0" />
                <p className="text-[11px] font-bold text-slate-500 leading-tight">
-                 Add components and drag them onto the common space. Drag from black pins to connect wires.
+                 Add components and drag them onto the common space. Connect output pins (black) to input pins (white) to build your circuit.
                </p>
              </div>
           </div>
