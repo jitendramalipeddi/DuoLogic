@@ -30,28 +30,28 @@ export type GenerateInitialLogicProblemOutput = z.infer<typeof GenerateInitialLo
 
 const FALLBACK_PROBLEM: GenerateInitialLogicProblemOutput = {
   variables: ["A", "B", "C", "D"],
-  description: "Advanced Challenge: Output 1 if the 4-bit binary input (A is MSB) represents a Prime Number (2, 3, 5, 7, 11, 13) OR if the number is exactly 8.",
-  targetTruthTable: [0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0],
+  description: "Advanced Challenge: Output 1 if 3 or more than 3 inputs (A, B, C, D) are ON (Logic 1).",
+  targetTruthTable: [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1],
   hints: {
     truth_table: {
-      level1: "Identify all prime numbers between 0 and 15. Don't forget that 1 is not a prime number.",
-      level2: "Primes in this range are 2, 3, 5, 7, 11, and 13. Also include the binary for 8 (1000).",
-      level3: "Rows with output 1 are: 2, 3, 5, 7, 8, 11, and 13."
+      level1: "Count how many inputs are '1' in each binary row (0-15).",
+      level2: "You need at least three '1's. Look at rows like 0111 (7) or 1011 (11).",
+      level3: "Rows with output 1 are: 7, 11, 13, 14, and 15."
     },
     kmap: {
-      level1: "This K-map will have 7 '1's. Look for groups of 2 and 4.",
-      level2: "There is a group of four '1's in the middle (Rows 01 and 11, Columns 01 and 11).",
-      level3: "You should find three main groups: A'CD, BC'D, and AB'C'D' (for the 8)."
+      level1: "Place '1's in the cells for rows 7, 11, 13, 14, 15. Look for groups of 2.",
+      level2: "There are four distinct pairs of adjacent 1s that cover all the 1s in the map.",
+      level3: "You should find four groups of 2: ABC, ABD, ACD, and BCD."
     },
     equation: {
-      level1: "The equation requires combining three distinct product terms.",
-      level2: "Try to group the primes separately from the value 8.",
-      level3: "F = A'BD + A'BC + AB'C'D' + B'CD is one way, but check for simpler Prime Implicants."
+      level1: "The final expression is a sum of four distinct product terms.",
+      level2: "Each term will involve 3 of the 4 variables. For example, ABC covers rows 14 and 15.",
+      level3: "F = ABC + ABD + ACD + BCD"
     },
     simulator: {
-      level1: "You will need multiple AND gates feeding into a single OR gate.",
-      level2: "Use NOT gates for inversions of variables like A' or D'.",
-      level3: "Implement the terms derived in the equation stage and combine them with a 4-input OR (or cascaded 2-input ORs)."
+      level1: "Use AND gates to create the 3-variable terms and an OR gate to combine them.",
+      level2: "Since your AND gates have 2 inputs, you'll need to cascade them (e.g., (A AND B) AND C).",
+      level3: "Implement four cascaded AND branches for ABC, ABD, ACD, and BCD, then feed all four results into an OR network."
     }
   }
 };
@@ -61,11 +61,13 @@ const prompt = ai.definePrompt({
   model: 'googleai/gemini-1.5-flash',
   input: { schema: GenerateInitialLogicProblemInputSchema },
   output: { schema: GenerateInitialLogicProblemOutputSchema },
-  prompt: `Generate an ADVANCED and CHALLENGING 4-variable digital logic problem for senior engineering students.
+  prompt: `Generate a challenging 4-variable digital logic problem. 
+Specific requirement: The problem must be "Output 1 if 3 or more than 3 inputs (A, B, C, D) are ON".
+
 - List four input variables (A, B, C, D) where A is MSB.
-- Provide a complex description (e.g., Prime numbers, Fibonacci numbers, or specific mathematical conditions like 'X is a multiple of 3 but not 9').
-- Provide a 16-element truth table (outputs only).
-- Ensure the simplified Boolean expression requires at least 3-4 terms to prevent trivial solutions.
+- Description: "Output 1 if 3 or more than 3 inputs are ON."
+- Provide a 16-element truth table (outputs only) matching this logic.
+- Ensure the simplified Boolean expression requires multiple terms.
 - Provide 3 levels of hints for each stage:
   - Level 1: Conceptual hint.
   - Level 2: Strategic hint.
