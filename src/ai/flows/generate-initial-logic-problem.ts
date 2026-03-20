@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for generating a unique 4-variable digital logic problem with tiered hints.
+ * @fileOverview A Genkit flow for generating a challenging 4-variable digital logic problem with tiered hints.
  */
 
 import { ai } from '@/ai/genkit';
@@ -30,28 +30,28 @@ export type GenerateInitialLogicProblemOutput = z.infer<typeof GenerateInitialLo
 
 const FALLBACK_PROBLEM: GenerateInitialLogicProblemOutput = {
   variables: ["A", "B", "C", "D"],
-  description: "Output 1 if the binary number (A is MSB, D is LSB) is greater than 7 and even.",
-  targetTruthTable: [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+  description: "Advanced Challenge: Output 1 if the 4-bit binary input (A is MSB) represents a Prime Number (2, 3, 5, 7, 11, 13) OR if the number is exactly 8.",
+  targetTruthTable: [0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0],
   hints: {
     truth_table: {
-      level1: "Recall that 'even' means the Least Significant Bit (D) must be 0.",
-      level2: "Check rows 8, 10, 12, and 14 specifically.",
-      level3: "Rows 0-7 are all 0 because the value must be greater than 7."
+      level1: "Identify all prime numbers between 0 and 15. Don't forget that 1 is not a prime number.",
+      level2: "Primes in this range are 2, 3, 5, 7, 11, and 13. Also include the binary for 8 (1000).",
+      level3: "Rows with output 1 are: 2, 3, 5, 7, 8, 11, and 13."
     },
     kmap: {
-      level1: "Group the '1's in the bottom half of the map where A is 1.",
-      level2: "Look for a single vertical column or a large block in the rows representing A=1.",
-      level3: "You can form a group of four '1's if you consider the property of the even numbers in the 8-15 range."
+      level1: "This K-map will have 7 '1's. Look for groups of 2 and 4.",
+      level2: "There is a group of four '1's in the middle (Rows 01 and 11, Columns 01 and 11).",
+      level3: "You should find three main groups: A'CD, BC'D, and AB'C'D' (for the 8)."
     },
     equation: {
-      level1: "The equation will likely involve A and D'.",
-      level2: "Since A must be 1 and D must be 0, look for a term like A · D'.",
-      level3: "The simplest expression for this specific problem is F = A · D'."
+      level1: "The equation requires combining three distinct product terms.",
+      level2: "Try to group the primes separately from the value 8.",
+      level3: "F = A'BD + A'BC + AB'C'D' + B'CD is one way, but check for simpler Prime Implicants."
     },
     simulator: {
-      level1: "You only need one AND gate and one NOT gate.",
-      level2: "Connect input A and the inverse of input D to the AND gate.",
-      level3: "Wire A to Pin 1 of AND, and D through a NOT gate to Pin 2 of AND."
+      level1: "You will need multiple AND gates feeding into a single OR gate.",
+      level2: "Use NOT gates for inversions of variables like A' or D'.",
+      level3: "Implement the terms derived in the equation stage and combine them with a 4-input OR (or cascaded 2-input ORs)."
     }
   }
 };
@@ -61,10 +61,11 @@ const prompt = ai.definePrompt({
   model: 'googleai/gemini-1.5-flash',
   input: { schema: GenerateInitialLogicProblemInputSchema },
   output: { schema: GenerateInitialLogicProblemOutputSchema },
-  prompt: `Generate a unique 4-variable digital logic problem for engineering students.
-- List four input variables (A, B, C, D).
-- Provide a clear description.
+  prompt: `Generate an ADVANCED and CHALLENGING 4-variable digital logic problem for senior engineering students.
+- List four input variables (A, B, C, D) where A is MSB.
+- Provide a complex description (e.g., Prime numbers, Fibonacci numbers, or specific mathematical conditions like 'X is a multiple of 3 but not 9').
 - Provide a 16-element truth table (outputs only).
+- Ensure the simplified Boolean expression requires at least 3-4 terms to prevent trivial solutions.
 - Provide 3 levels of hints for each stage:
   - Level 1: Conceptual hint.
   - Level 2: Strategic hint.
