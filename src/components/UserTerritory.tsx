@@ -314,7 +314,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              <Input 
                 value={expressionInput}
                 onChange={(e) => setExpressionInput(e.target.value)}
-                placeholder="e.g. A'B + CD"
+                placeholder="e.g. ABC + ABD..."
                 className="font-mono text-2xl h-16 border-2 border-slate-100 focus-visible:ring-offset-2 rounded-xl text-center"
                 disabled={state.expressions[userId] !== ''}
              />
