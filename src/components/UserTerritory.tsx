@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Trash2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface UserTerritoryProps {
@@ -81,13 +82,13 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     }
 
     if (errors.length > 0) {
-      setValidationError("Your K-map does not match the truth table. Verify your cell mapping (Grey code order).");
+      setValidationError("Your K-map values don't match the truth table. Remember, K-maps use Grey Code (00, 01, 11, 10).");
       logEvent('kmap_fill_validation_fail', { errorCount: errors.length });
     } else {
       setValidationError(null);
       updateState({ kmapSubStage: 'group' });
       logEvent('kmap_fill_validation_success', {});
-      toast({ title: "K-Map Populated", description: "Values correctly mapped from truth table. Now, identify groups." });
+      toast({ title: "K-Map Populated", description: "Values correctly mapped. Now, click and drag to identify optimal groups of 1s." });
     }
   };
 
@@ -258,29 +259,29 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
         {state.stage === 'kmap' && (
           <div className="flex flex-col items-center h-full space-y-4">
-            <div className="scale-75 origin-top">
+            <div className="scale-[0.65] origin-top">
               <KMapGrid state={state} updateState={updateState} logEvent={logEvent} activeUserId={userId} />
             </div>
             
-            <div className="w-full px-4">
-              <div className="bg-slate-50 border-2 border-slate-100 rounded-xl p-4 mb-4">
-                <div className="flex items-center gap-2 mb-1">
+            <div className="w-full px-4 -mt-10">
+              <div className="bg-slate-100/80 border-2 border-slate-200 rounded-2xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2">
                   {state.kmapSubStage === 'fill' ? <MousePointer2 className="w-4 h-4 text-amber-600" /> : <Layers className="w-4 h-4 text-blue-600" />}
-                  <h4 className="font-black text-xs uppercase tracking-widest">
-                    {state.kmapSubStage === 'fill' ? 'Task 1: Fill K-Map' : 'Task 2: Grouping'}
+                  <h4 className="font-black text-xs uppercase tracking-widest text-slate-800">
+                    {state.kmapSubStage === 'fill' ? 'Task 1: Fill K-Map' : 'Task 2: Select Groups'}
                   </h4>
                 </div>
-                <p className="text-[11px] font-bold text-slate-500 italic">
+                <p className="text-[11px] font-bold text-slate-600 leading-relaxed">
                   {state.kmapSubStage === 'fill' 
-                    ? "Click cells to toggle values (0, 1) based on the truth table rows in Grey code order."
-                    : "Click and drag to select blocks of 1s (must be powers of 2)."}
+                    ? "Click cells to toggle between 0, 1, and X based on the truth table."
+                    : "Click and drag across cells to form blocks of 1s. Groups must be sized in powers of 2 (1, 2, 4, 8)."}
                 </p>
               </div>
 
               {validationError && (
                 <Alert variant="destructive" className="bg-red-50 border-red-200 mb-4">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs">{validationError}</AlertDescription>
+                  <AlertDescription className="text-xs font-bold">{validationError}</AlertDescription>
                 </Alert>
               )}
 
@@ -362,3 +363,4 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     </div>
   );
 }
+
