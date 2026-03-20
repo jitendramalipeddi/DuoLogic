@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Trash2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface UserTerritoryProps {
@@ -121,6 +120,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       });
 
       if (result.isOptimal) {
+        setValidationError(null);
         updateState({ stage: 'equation' });
         logEvent('kmap_validation_success', {});
         toast({ title: "K-Map Optimized", description: "Your groupings are optimal Prime Implicants." });
@@ -298,7 +298,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                   disabled={validating}
                   className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
                 >
-                  {validating ? "VERIFYING OPTIMALITY..." : "VALIDATE GROUPINGS"}
+                  {validating ? <><Loader2 className="w-5 h-5 animate-spin" /> VERIFYING...</> : <><ShieldCheck className="w-5 h-5" /> VALIDATE GROUPINGS</>}
                 </Button>
               )}
             </div>
@@ -329,7 +329,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                 disabled={validating || state.expressions[userId] !== ''}
                 className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2`}
              >
-                {state.expressions[userId] ? 'AWAITING PEER...' : validating ? 'ANALYZING...' : 'SUBMIT SOLUTION'}
+                {state.expressions[userId] ? 'AWAITING PEER...' : validating ? <><Loader2 className="w-5 h-5 animate-spin" /> ANALYZING...</> : 'SUBMIT SOLUTION'}
              </Button>
           </div>
         )}
@@ -363,4 +363,3 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     </div>
   );
 }
-

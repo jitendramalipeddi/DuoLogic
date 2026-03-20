@@ -24,7 +24,7 @@ const AdviseKMapGroupingOptimizationInputSchema = z.object({
 export type AdviseKMapGroupingOptimizationInput = z.infer<typeof AdviseKMapGroupingOptimizationInputSchema>;
 
 const AdviseKMapGroupingOptimizationOutputSchema = z.object({
-  isOptimal: z.boolean().describe('True if the user groupings represent an optimal K-map simplification (minimal Prime Implicants covering all 1s); false otherwise.'),
+  isOptimal: z.boolean().describe('True if the user groupings represent an optimal K-map simplification; false otherwise.'),
   feedback: z.string().describe('Constructive feedback. If suboptimal, explain why (e.g., missed 1s, non-power-of-2 group size, or groups could be merged).'),
 });
 export type AdviseKMapGroupingOptimizationOutput = z.infer<typeof AdviseKMapGroupingOptimizationOutputSchema>;
@@ -40,26 +40,30 @@ const prompt = ai.definePrompt({
   output: { schema: AdviseKMapGroupingOptimizationOutputSchema },
   prompt: `You are an expert in digital logic design. Analyze the provided 4-variable K-map grid and the student's groupings.
   
-K-map Grid (Rows AB: 00, 01, 11, 10; Columns CD: 00, 01, 11, 10):
+K-map Grid Layout:
+Rows (AB): index 0=00, 1=01, 2=11, 3=10
+Cols (CD): index 0=00, 1=01, 2=11, 3=10
+
+Current Grid Data:
 {{#each kMapGrid}}
 Row {{@index}}: {{#each this}} [{{this}}] {{/each}}
 {{/each}}
 
-User's Proposed Groups:
+User's Proposed Groups (by row/col indices):
 {{#each userGroupings}}
-Group {{add @index 1}}: {{#each this}}({{this.row}},{{this.col}}) {{/each}}
+Group: {{#each this}}({{this.row}},{{this.col}}) {{/each}}
 {{/each}}
 
 Your goal is to determine if these groups are optimal for Boolean simplification.
 Criteria for optimality:
 1. COMPLETE COVERAGE: Every '1' in the grid MUST be part of at least one group.
-2. VALID SIZES: Every group size must be a power of 2 (1, 2, 4, 8, or 16 cells).
-3. PRIME IMPLICANTS: Groups should be as large as possible. If a group can be doubled in size by including adjacent 1s (or Xs), the current group is not optimal.
-4. MINIMALITY: Use the fewest number of groups necessary to cover all 1s.
+2. VALID SIZES: Every group size must be a power of 2 (1, 2, 4, 8, or 16 cells) and form a rectangle.
+3. PRIME IMPLICANTS: Groups should be as large as possible. If a group can be doubled in size by including adjacent 1s (or Xs), it is not optimal.
+4. MINIMALITY: Use the fewest groups necessary to cover all 1s.
 
-Don't cares ('X') can be used to make groups larger, but do not need to be covered if they don't help.
+Don't cares ('X') can be used to make groups larger, but do not need to be covered.
 
-Evaluate the student's work. If it's correct, set isOptimal to true. If not, provide helpful hints (e.g., "You missed a 1 at row 2, col 3" or "The group at (0,0) could be larger").`,
+Evaluate the student's work. If it's correct and simplified, set isOptimal to true. If not, provide helpful hints (e.g., "You missed a 1 at row 2, col 3" or "The group at (0,0) could be larger").`,
 });
 
 const adviseKMapGroupingOptimizationFlow = ai.defineFlow(
