@@ -24,11 +24,19 @@ const validateUserBooleanExpressionPrompt = ai.definePrompt({
   model: 'googleai/gemini-1.5-flash',
   input: {schema: ValidateBooleanExpressionInputSchema},
   output: {schema: ValidateBooleanExpressionOutputSchema},
-  prompt: `Compare these Boolean expressions for variables {{{variables}}}.
-User: {{{userExpression}}}
-Ideal: {{{idealExpression}}}
+  prompt: `You are a digital logic expert. Your task is to determine if two Boolean expressions are logically equivalent for the variables: {{{variables}}}.
 
-Determine if they are logically equivalent. If not, explain why.`,
+User's Expression: {{{userExpression}}}
+Ideal Reference: {{{idealExpression}}}
+
+Guidelines:
+1. Ignore common prefixes like "F =", "F(A,B,C,D) =", or "Output =".
+2. Treat '+' as OR, juxtaposition or '.' as AND, and symbols like ' (apostrophe) or ! as NOT.
+3. Expressions are equivalent if they produce the same truth table.
+4. If the user expression is a valid simplification (even if it uses different identities than the ideal), it should be marked as correct.
+
+If they are equivalent, set isCorrect to true.
+If they are NOT equivalent, provide a concise explanation of which minterm/row might be wrong or what logic is missing.`,
 });
 
 export async function validateUserBooleanExpression(input: ValidateBooleanExpressionInput): Promise<ValidateBooleanExpressionOutput> {
@@ -42,7 +50,24 @@ const validateUserBooleanExpressionFlow = ai.defineFlow(
     outputSchema: ValidateBooleanExpressionOutputSchema,
   },
   async input => {
-    const {output} = await validateUserBooleanExpressionPrompt(input);
-    return output!;
+    try {
+      const {output} = await validateUserBooleanExpressionPrompt(input);
+      if (!output) throw new Error('No output from validation AI');
+      return output;
+    } catch (error) {
+      console.error('Validation flow failed:', error);
+      // Fallback: If AI fails, do a normalized string comparison for the "3 or more ON" case
+      const normalizedUser = input.userExpression.replace(/\s/g, '').toUpperCase();
+      const normalizedIdeal = input.idealExpression.replace(/\s/g, '').toUpperCase().replace(/^F=/, '');
+      
+      if (normalizedUser === normalizedIdeal) {
+        return { isCorrect: true, feedback: "Direct match verified by fallback." };
+      }
+      
+      return { 
+        isCorrect: false, 
+        feedback: "The logic engine encountered an error. Please double-check your syntax (e.g. ABC + BCD)." 
+      };
+    }
   }
 );

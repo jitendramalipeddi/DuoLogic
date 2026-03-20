@@ -46,7 +46,7 @@ const FALLBACK_PROBLEM: GenerateInitialLogicProblemOutput = {
     equation: {
       level1: "The final expression is a sum of four distinct product terms.",
       level2: "Each term will involve 3 of the 4 variables. For example, ABC covers rows 14 and 15.",
-      level3: "F = ABC + ABD + ACD + BCD"
+      level3: "ABC + ABD + ACD + BCD"
     },
     simulator: {
       level1: "Use AND gates to create the 3-variable terms and an OR gate to combine them.",
@@ -68,10 +68,8 @@ Specific requirement: The problem must be "Output 1 if 3 or more than 3 inputs (
 - Description: "Output 1 if 3 or more than 3 inputs are ON."
 - Provide a 16-element truth table (outputs only) matching this logic.
 - Ensure the simplified Boolean expression requires multiple terms.
-- Provide 3 levels of hints for each stage:
-  - Level 1: Conceptual hint.
-  - Level 2: Strategic hint.
-  - Level 3: Direct scaffolding or partial solution.
+- Provide 3 levels of hints for each stage.
+- CRITICAL: In hints.equation.level3, provide ONLY the Boolean expression (e.g. "ABC + ABD") without any "F =" prefix.
 
 Ensure logical consistency. Output strictly JSON.`,
 });
