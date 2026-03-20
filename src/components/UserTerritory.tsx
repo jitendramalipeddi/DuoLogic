@@ -96,15 +96,26 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     setValidating(true);
     setValidationError(null);
 
-    // Convert flat array to 4x4 grid
-    const grid: any[][] = [];
-    for (let i = 0; i < 4; i++) {
-      grid.push(state.userKMapValues.slice(i * 4, (i + 1) * 4).map(v => v === 2 ? 'X' : v.toString()));
+    // Grey code indices for 4-variable K-map (00, 01, 11, 10)
+    const greyOrder = [0, 1, 3, 2];
+    
+    // Convert flat array (indexed by truth table row) to 4x4 grid expected by AI
+    const grid: string[][] = [];
+    for (let r = 0; r < 4; r++) {
+      const rowData: string[] = [];
+      for (let c = 0; c < 4; c++) {
+        const rowGrey = greyOrder[r];
+        const colGrey = greyOrder[c];
+        const idx = (rowGrey << 2) | colGrey;
+        const v = state.userKMapValues[idx];
+        rowData.push(v === 2 ? 'X' : (v === -1 ? '0' : v.toString()));
+      }
+      grid.push(rowData);
     }
 
     try {
       const result = await adviseKMapGroupingOptimization({
-        kMapGrid: grid,
+        kMapGrid: grid as any,
         userGroupings: state.userGroupings.map(g => g.cells)
       });
 
