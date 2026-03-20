@@ -4,10 +4,22 @@ import { useState, useCallback } from 'react';
 
 export type GameStage = 'intro' | 'truth_table' | 'kmap' | 'equation' | 'discussion' | 'simulator' | 'finished';
 
+export interface StageHints {
+  level1: string;
+  level2: string;
+  level3: string;
+}
+
 export interface LogicProblem {
   variables: string[];
   description: string;
   targetTruthTable: number[];
+  hints: {
+    truth_table: StageHints;
+    kmap: StageHints;
+    equation: StageHints;
+    simulator: StageHints;
+  };
 }
 
 export interface KMapGrouping {
@@ -53,6 +65,7 @@ export interface GameState {
   wires: WireConnection[];
   logs: LogEntry[];
   isComplete: boolean;
+  hintLevels: { [key in GameStage]?: number };
 }
 
 const initialState: GameState = {
@@ -74,6 +87,7 @@ const initialState: GameState = {
   wires: [],
   logs: [],
   isComplete: false,
+  hintLevels: {},
 };
 
 export function useGameState() {

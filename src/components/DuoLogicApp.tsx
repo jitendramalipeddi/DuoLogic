@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import CommonSpace from '@/components/CommonSpace';
 import UserTerritory from '@/components/UserTerritory';
+import HintSystem from '@/components/HintSystem';
 import { useGameState } from '@/hooks/useGameState';
 import { generateInitialLogicProblem } from '@/ai/flows/generate-initial-logic-problem';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
+import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2, Info } from 'lucide-react';
 
 export default function DuoLogicApp() {
   const { 
@@ -37,13 +38,7 @@ export default function DuoLogicApp() {
           logEvent('problem_initialized', { description: problem.description });
         } catch (e: any) {
           console.error("Failed to load problem", e);
-          const isQuotaError = e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED');
-          const isNotFoundError = e.message?.includes('404') || e.message?.includes('not found');
-          
-          let message = "An error occurred while initializing the logic problem.";
-          if (isQuotaError) message = "AI API Quota exceeded. Please try again in a few minutes.";
-          if (isNotFoundError) message = "AI model configuration error. Please contact support.";
-          
+          const message = "The AI laboratory is currently resetting. Please try again in a moment.";
           setError(message);
           toast({
             variant: "destructive",
@@ -73,7 +68,7 @@ export default function DuoLogicApp() {
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50">
         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
         <div className="text-primary font-black text-2xl tracking-tighter">
-          STARTING DUOLOGIC...
+          SYNCHRONIZING LABORATORY...
         </div>
       </div>
     );
@@ -120,7 +115,7 @@ export default function DuoLogicApp() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
-      <header className="h-16 border-b bg-white flex items-center justify-between px-8 z-50 shadow-sm">
+      <header className="h-16 border-b bg-white flex items-center justify-between px-8 z-50 shadow-sm shrink-0">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-black">DL</div>
@@ -174,8 +169,13 @@ export default function DuoLogicApp() {
       </header>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-1/2 w-full p-4 overflow-hidden bg-slate-100/50">
-          <CommonSpace state={state} updateState={updateState} logEvent={logEvent} />
+        <div className="h-1/2 w-full p-4 overflow-hidden bg-slate-100/50 flex flex-col">
+          <div className="flex-1 overflow-hidden">
+            <CommonSpace state={state} updateState={updateState} logEvent={logEvent} />
+          </div>
+          <div className="mt-2 px-4 pb-2">
+             <HintSystem state={state} updateState={updateState} logEvent={logEvent} />
+          </div>
         </div>
 
         <div className="h-1/2 w-full flex border-t-2 border-slate-200 bg-white">
@@ -184,14 +184,14 @@ export default function DuoLogicApp() {
             state={state} 
             updateState={updateState} 
             logEvent={logEvent} 
-            className="user1-zone w-1/2 p-6 border-r-2 border-slate-100"
+            className="user1-zone w-1/2 p-6 border-r-2 border-slate-100 overflow-y-auto"
           />
           <UserTerritory 
             userId={2} 
             state={state} 
             updateState={updateState} 
             logEvent={logEvent} 
-            className="user2-zone w-1/2 p-6"
+            className="user2-zone w-1/2 p-6 overflow-y-auto"
           />
         </div>
       </div>
