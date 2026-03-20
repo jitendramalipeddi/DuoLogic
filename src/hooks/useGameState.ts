@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 
 export type GameStage = 'intro' | 'truth_table' | 'kmap' | 'equation' | 'discussion' | 'simulator' | 'finished';
+export type KMapSubStage = 'fill' | 'group';
 
 export interface StageHints {
   level1: string;
@@ -58,6 +59,8 @@ export interface GameState {
   problem: LogicProblem | null;
   accepted: { [key: number]: boolean };
   userTruthTable: number[]; // 16 entries, 0 or 1. -1 if not set.
+  userKMapValues: number[]; // 16 entries, 0 or 1. -1 if not set.
+  kmapSubStage: KMapSubStage;
   userGroupings: KMapGrouping[];
   expressions: { [key: number]: string };
   discussionPrompts: string[];
@@ -74,6 +77,8 @@ const initialState: GameState = {
   problem: null,
   accepted: { 1: false, 2: false },
   userTruthTable: new Array(16).fill(-1),
+  userKMapValues: new Array(16).fill(-1),
+  kmapSubStage: 'fill',
   userGroupings: [],
   expressions: { 1: '', 2: '' },
   discussionPrompts: [],

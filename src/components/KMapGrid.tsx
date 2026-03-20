@@ -25,13 +25,33 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
 
   const [selectionStart, setSelectionStart] = useState<{row: number, col: number} | null>(null);
 
+  const handleCellClick = (r: number, c: number) => {
+    if (readOnly || state.kmapSubStage !== 'fill') return;
+    
+    const idx = getCellIndex(r, c);
+    const currentVal = state.userKMapValues[idx];
+    
+    // Cycle values: -1 -> 0 -> 1 -> -1 (or include X if needed)
+    // For simplicity: 0 -> 1 -> X (represented as 2) -> 0
+    let newVal;
+    if (currentVal === -1) newVal = 0;
+    else if (currentVal === 0) newVal = 1;
+    else if (currentVal === 1) newVal = 0; // Simplified for now, can add 2 for X
+    else newVal = 0;
+
+    const newKMapValues = [...state.userKMapValues];
+    newKMapValues[idx] = newVal;
+    updateState({ userKMapValues: newKMapValues });
+    logEvent('kmap_value_toggle', { userId: activeUserId, row: r, col: c, value: newVal });
+  };
+
   const handleTouchStart = (r: number, c: number) => {
-    if (readOnly) return;
+    if (readOnly || state.kmapSubStage !== 'group') return;
     setSelectionStart({ row: r, col: c });
   };
 
   const handleTouchEnd = (r: number, c: number) => {
-    if (!selectionStart || readOnly) return;
+    if (!selectionStart || readOnly || state.kmapSubStage !== 'group') return;
     
     const minRow = Math.min(selectionStart.row, r);
     const maxRow = Math.max(selectionStart.row, r);
@@ -83,45 +103,50 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
           {Array.from({ length: 4 }).map((_, r) => (
             Array.from({ length: 4 }).map((_, c) => {
               const idx = getCellIndex(r, c);
-              const val = state.userTruthTable[idx];
+              const val = state.userKMapValues[idx];
               return (
                 <div 
                   key={`${r}-${c}`}
-                  className="w-14 h-14 border border-gray-200 flex items-center justify-center text-lg font-bold font-mono hover:bg-muted/30 cursor-crosshair relative z-10"
+                  className={`w-14 h-14 border border-gray-200 flex items-center justify-center text-lg font-bold font-mono transition-colors relative z-10 ${
+                    state.kmapSubStage === 'fill' ? 'hover:bg-amber-50 cursor-pointer' : 'hover:bg-muted/30 cursor-crosshair'
+                  }`}
+                  onClick={() => handleCellClick(r, c)}
                   onMouseDown={() => handleTouchStart(r, c)}
                   onMouseUp={() => handleTouchEnd(r, c)}
                 >
-                  {val === -1 ? '?' : val}
+                  {val === -1 ? '?' : val === 2 ? 'X' : val}
                 </div>
-              );
+              )
             })
           ))}
         </div>
 
         {/* Grouping Overlays */}
-        <div className="absolute inset-8 pointer-events-none">
-          {state.userGroupings.map((g) => {
-            const minRow = Math.min(...g.cells.map(c => c.row));
-            const maxRow = Math.max(...g.cells.map(c => c.row));
-            const minCol = Math.min(...g.cells.map(c => c.col));
-            const maxCol = Math.max(...g.cells.map(c => c.col));
-            
-            const style = {
-              top: `${minRow * 25}%`,
-              left: `${minCol * 25}%`,
-              width: `${(maxCol - minCol + 1) * 25}%`,
-              height: `${(maxRow - minRow + 1) * 25}%`,
-            };
+        {state.kmapSubStage === 'group' && (
+          <div className="absolute inset-8 pointer-events-none">
+            {state.userGroupings.map((g) => {
+              const minRow = Math.min(...g.cells.map(c => c.row));
+              const maxRow = Math.max(...g.cells.map(c => c.row));
+              const minCol = Math.min(...g.cells.map(c => c.col));
+              const maxCol = Math.max(...g.cells.map(c => c.col));
+              
+              const style = {
+                top: `${minRow * 25}%`,
+                left: `${minCol * 25}%`,
+                width: `${(maxCol - minCol + 1) * 25}%`,
+                height: `${(maxRow - minRow + 1) * 25}%`,
+              };
 
-            return (
-              <div 
-                key={g.id}
-                className={`absolute border-2 rounded-md ${g.userId === 1 ? 'bg-red-400/20 border-red-500' : 'bg-blue-400/20 border-blue-500'}`}
-                style={style}
-              />
-            );
-          })}
-        </div>
+              return (
+                <div 
+                  key={g.id}
+                  className={`absolute border-2 rounded-md ${g.userId === 1 ? 'bg-red-400/20 border-red-500' : 'bg-blue-400/20 border-blue-500'}`}
+                  style={style}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface UserTerritoryProps {
@@ -65,9 +65,29 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       logEvent('truth_table_validation_fail', { errorCount: errors.length });
     } else {
       setValidationError(null);
-      updateState({ stage: 'kmap' });
+      updateState({ stage: 'kmap', kmapSubStage: 'fill' });
       logEvent('truth_table_validation_success', {});
       toast({ title: "Truth Table Verified", description: "All entries match the target logic." });
+    }
+  };
+
+  const validateKMapFilling = () => {
+    const errors = state.userKMapValues.filter((val, idx) => val !== -1 && val !== state.userTruthTable[idx]);
+    const anyIncomplete = state.userKMapValues.some(val => val === -1);
+
+    if (anyIncomplete) {
+      setValidationError("Please fill all cells in the K-map grid.");
+      return;
+    }
+
+    if (errors.length > 0) {
+      setValidationError("Your K-map does not match the truth table. Verify your cell mapping (Grey code order).");
+      logEvent('kmap_fill_validation_fail', { errorCount: errors.length });
+    } else {
+      setValidationError(null);
+      updateState({ kmapSubStage: 'group' });
+      logEvent('kmap_fill_validation_success', {});
+      toast({ title: "K-Map Populated", description: "Values correctly mapped from truth table. Now, identify groups." });
     }
   };
 
@@ -79,7 +99,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     // Convert flat array to 4x4 grid
     const grid: any[][] = [];
     for (let i = 0; i < 4; i++) {
-      grid.push(state.userTruthTable.slice(i * 4, (i + 1) * 4).map(v => v.toString()));
+      grid.push(state.userKMapValues.slice(i * 4, (i + 1) * 4).map(v => v === 2 ? 'X' : v.toString()));
     }
 
     try {
@@ -110,11 +130,9 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     logEvent('expression_submit_attempt', { userId, expression: expressionInput });
     
     try {
-      // For MVP, we use the fallback problem's equation if it exists, or just a simple check
-      // Ideally, we'd have an "idealEquation" in the problem object
       const result = await validateUserBooleanExpression({
         userExpression: expressionInput,
-        idealExpression: state.problem.hints.equation.level3, // Level 3 hint often contains the answer
+        idealExpression: state.problem.hints.equation.level3,
         variables: state.problem.variables
       });
 
@@ -162,12 +180,6 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             PARTNER {userId}
           </h3>
         </div>
-        {isSectionFilled && state.stage === 'truth_table' && (
-          <div className="flex items-center text-green-600 text-[10px] font-bold">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            FILLED
-          </div>
-        )}
       </div>
 
       <div className="flex-1 overflow-auto">
@@ -227,7 +239,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                </Button>
             ) : isSectionFilled ? (
               <div className="p-4 bg-slate-50 rounded-xl text-sm font-bold text-center border-2 border-dashed border-slate-200 text-slate-400 italic">
-                Waiting for Peer to complete their section...
+                Waiting for Peer...
               </div>
             ) : null}
           </div>
@@ -238,19 +250,46 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             <div className="scale-75 origin-top">
               <KMapGrid state={state} updateState={updateState} logEvent={logEvent} activeUserId={userId} />
             </div>
-            {validationError && (
-              <Alert variant="destructive" className="bg-red-50 border-red-200 w-full">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs">{validationError}</AlertDescription>
-              </Alert>
-            )}
-            <Button 
-              onClick={validateKMapGroupings} 
-              disabled={validating}
-              className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
-            >
-              {validating ? "VERIFYING OPTIMALITY..." : "VALIDATE GROUPINGS"}
-            </Button>
+            
+            <div className="w-full px-4">
+              <div className="bg-slate-50 border-2 border-slate-100 rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  {state.kmapSubStage === 'fill' ? <MousePointer2 className="w-4 h-4 text-amber-600" /> : <Layers className="w-4 h-4 text-blue-600" />}
+                  <h4 className="font-black text-xs uppercase tracking-widest">
+                    {state.kmapSubStage === 'fill' ? 'Task 1: Fill K-Map' : 'Task 2: Grouping'}
+                  </h4>
+                </div>
+                <p className="text-[11px] font-bold text-slate-500 italic">
+                  {state.kmapSubStage === 'fill' 
+                    ? "Click cells to toggle values (0, 1) based on the truth table rows in Grey code order."
+                    : "Click and drag to select blocks of 1s (must be powers of 2)."}
+                </p>
+              </div>
+
+              {validationError && (
+                <Alert variant="destructive" className="bg-red-50 border-red-200 mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">{validationError}</AlertDescription>
+                </Alert>
+              )}
+
+              {state.kmapSubStage === 'fill' ? (
+                <Button 
+                  onClick={validateKMapFilling}
+                  className="w-full h-14 text-lg font-black bg-amber-600 shadow-xl rounded-xl gap-2"
+                >
+                  VALIDATE K-MAP VALUES
+                </Button>
+              ) : (
+                <Button 
+                  onClick={validateKMapGroupings} 
+                  disabled={validating}
+                  className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
+                >
+                  {validating ? "VERIFYING OPTIMALITY..." : "VALIDATE GROUPINGS"}
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -303,7 +342,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              <div className="p-4 bg-muted/20 rounded-2xl border-2 border-dashed border-slate-200 flex gap-3 items-start">
                <Info className="w-5 h-5 text-slate-400 shrink-0" />
                <p className="text-[11px] font-bold text-slate-500 leading-tight">
-                 Add components and drag them onto the common space. Connect output pins (black) to input pins (white) to build your circuit.
+                 Add gates and build the circuit in the common space to match your Boolean expression.
                </p>
              </div>
           </div>
