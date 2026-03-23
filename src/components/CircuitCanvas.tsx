@@ -16,9 +16,11 @@ const GATE_WIDTH = 100;
 const GATE_HEIGHT = 60;
 
 export default function CircuitCanvas({ state, updateState, logEvent }: CircuitCanvasProps) {
-  const [draggingCompId, setDraggingCompId] = useState<string | null>(null);
-  const [wireStart, setWireStart] = useState<{ id: string; pin: number; type: 'in' | 'out' } | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  // Multi-touch tracking
+  const [activeDrags, setActiveDrags] = useState<Record<number, string>>({}); // pointerId -> compId
+  const [activeWires, setActiveWires] = useState<Record<number, { id: string; pin: number; type: 'in' | 'out' }>>({}); // pointerId -> wireStart
+  const [pointerPos, setPointerPos] = useState<Record<number, { x: number; y: number }>>({}); // pointerId -> pos
+  
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [simulatedLedOutput, setSimulatedLedOutput] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,13 +30,16 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    setMousePos({ x, y });
+    
+    setPointerPos(prev => ({ ...prev, [e.pointerId]: { x, y } }));
 
-    if (draggingCompId) {
-      const comp = state.circuitComponents.find(c => c.id === draggingCompId);
+    // Handle independent dragging
+    const draggingId = activeDrags[e.pointerId];
+    if (draggingId) {
+      const comp = state.circuitComponents.find(c => c.id === draggingId);
       if (comp && comp.type !== 'INPUT') {
         const newComps = state.circuitComponents.map(c => 
-          c.id === draggingCompId ? { ...c, x: x - GATE_WIDTH/2, y: y - GATE_HEIGHT/2 } : c
+          c.id === draggingId ? { ...c, x: x - GATE_WIDTH/2, y: y - GATE_HEIGHT/2 } : c
         );
         updateState({ circuitComponents: newComps });
       }
@@ -43,14 +48,14 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
 
   const startWiring = (e: React.PointerEvent, id: string, pin: number, type: 'in' | 'out') => {
     e.stopPropagation();
-    // Use setPointerCapture to ensure dragging works well on touch
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    setWireStart({ id, pin, type });
-    logEvent('wire_start', { id, pin, type });
+    setActiveWires(prev => ({ ...prev, [e.pointerId]: { id, pin, type } }));
+    logEvent('wire_start', { id, pin, type, pointerId: e.pointerId });
   };
 
   const endWiring = (e: React.PointerEvent, id: string, pin: number, type: 'in' | 'out') => {
     e.stopPropagation();
+    const wireStart = activeWires[e.pointerId];
     if (wireStart && wireStart.id !== id && wireStart.type !== type) {
       const from = wireStart.type === 'out' ? wireStart : { id, pin, type };
       const to = wireStart.type === 'in' ? wireStart : { id, pin, type };
@@ -63,12 +68,14 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
         toPin: to.pin
       };
 
-      // Ensure single input per pin
       const filteredWires = state.wires.filter(w => !(w.toId === to.id && w.toPin === to.pin));
       updateState({ wires: [...filteredWires, newWire] });
       logEvent('wire_connect', { fromId: from.id, toId: to.id });
     }
-    setWireStart(null);
+    
+    const newWires = { ...activeWires };
+    delete newWires[e.pointerId];
+    setActiveWires(newWires);
   };
 
   const getPinPos = (compId: string, pinIndex: number, type: 'in' | 'out') => {
@@ -162,15 +169,12 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
   };
 
   const getPinAtPos = (x: number, y: number) => {
-    // Basic hit test for pins during pointer up
     for (const comp of state.circuitComponents) {
-      // Check Output pin
       if (comp.type !== 'LED') {
         const p = getPinPos(comp.id, 0, 'out');
         const d = Math.sqrt((p.x - x)**2 + (p.y - y)**2);
         if (d < 30) return { id: comp.id, pin: 0, type: 'out' as const };
       }
-      // Check Input pins
       if (comp.type !== 'INPUT') {
         const pins = comp.type === 'NOT' || comp.type === 'LED' ? [0] : [0, 1];
         for (const pinIdx of pins) {
@@ -184,6 +188,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
   };
 
   const handlePointerUpGlobal = (e: React.PointerEvent) => {
+    const wireStart = activeWires[e.pointerId];
     if (wireStart) {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
@@ -194,10 +199,19 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       if (targetPin) {
         endWiring(e, targetPin.id, targetPin.pin, targetPin.type);
       } else {
-        setWireStart(null);
+        const newWires = { ...activeWires };
+        delete newWires[e.pointerId];
+        setActiveWires(newWires);
       }
     }
-    setDraggingCompId(null);
+    
+    const newDrags = { ...activeDrags };
+    delete newDrags[e.pointerId];
+    setActiveDrags(newDrags);
+    
+    const newPos = { ...pointerPos };
+    delete newPos[e.pointerId];
+    setPointerPos(newPos);
   };
 
   return (
@@ -208,7 +222,8 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       onPointerUp={handlePointerUpGlobal}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="absolute top-4 left-4 z-40 flex flex-col gap-3 max-w-sm">
+      {/* SHIFTED TO RIGHT: Controls & Result Alert */}
+      <div className="absolute top-4 right-4 z-40 flex flex-col items-end gap-3 max-w-sm text-right">
         <div className="flex gap-2">
           <Button size="lg" onClick={runSimulation} className="bg-primary hover:bg-primary/90 font-bold shadow-xl gap-2 h-14 px-6 text-lg">
             <Play className="w-5 h-5 fill-current" /> TEST CIRCUIT
@@ -221,7 +236,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
         </div>
         
         {testResult && (
-          <Alert className={`${testResult.success ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'} shadow-lg animate-in slide-in-from-top-2`}>
+          <Alert className={`${testResult.success ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'} shadow-lg animate-in slide-in-from-right-2 text-left`}>
             {testResult.success ? <CheckCircle2 className="h-5 w-5 text-green-700" /> : <AlertTriangle className="h-5 w-5 text-red-700" />}
             <AlertTitle className={`font-black uppercase tracking-widest text-xs ${testResult.success ? 'text-green-900' : 'text-red-900'}`}>
               {testResult.success ? 'Verification Success' : 'Logical Error'}
@@ -244,7 +259,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
           const end = getPinPos(wire.toId, wire.toPin, 'in');
           return (
             <g key={wire.id} className="pointer-events-auto cursor-pointer group">
-              {/* Hit area for easier clicking on wires */}
               <path 
                 d={`M ${start.x} ${start.y} C ${start.x + 40} ${start.y}, ${end.x - 40} ${end.y}, ${end.x} ${end.y}`}
                 stroke="transparent"
@@ -271,15 +285,21 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
             </g>
           );
         })}
-        {wireStart && (
-          <path 
-            d={`M ${getPinPos(wireStart.id, wireStart.pin, wireStart.type).x} ${getPinPos(wireStart.id, wireStart.pin, wireStart.type).y} L ${mousePos.x} ${mousePos.y}`}
-            stroke="#94a3b8"
-            strokeWidth="3"
-            strokeDasharray="8,4"
-            fill="none"
-          />
-        )}
+        {Object.entries(activeWires).map(([ptrId, startData]) => {
+          const start = getPinPos(startData.id, startData.pin, startData.type);
+          const end = pointerPos[Number(ptrId)];
+          if (!end) return null;
+          return (
+            <path 
+              key={ptrId}
+              d={`M ${start.x} ${start.y} L ${end.x} ${end.y}`}
+              stroke="#94a3b8"
+              strokeWidth="3"
+              strokeDasharray="8,4"
+              fill="none"
+            />
+          );
+        })}
       </svg>
 
       {state.circuitComponents.map((comp) => (
@@ -296,7 +316,12 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
         >
           <div 
             className={`h-1/3 w-full flex items-center justify-between px-3 rounded-t-xl ${comp.userId === 0 ? 'bg-slate-300' : 'bg-black/30'} cursor-grab active:cursor-grabbing text-slate-800`}
-            onPointerDown={(e) => { e.stopPropagation(); if(comp.type !== 'INPUT') setDraggingCompId(comp.id); }}
+            onPointerDown={(e) => { 
+              e.stopPropagation(); 
+              if(comp.type !== 'INPUT' || comp.type === 'LED') {
+                setActiveDrags(prev => ({ ...prev, [e.pointerId]: comp.id }));
+              }
+            }}
           >
             <span className="text-[10px] font-black tracking-widest opacity-80">
               {comp.userId === 0 ? 'FIXED' : `P${comp.userId}`}

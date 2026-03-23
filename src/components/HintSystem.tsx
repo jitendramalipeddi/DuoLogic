@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { GameState } from '@/hooks/useGameState';
@@ -57,12 +57,12 @@ export default function HintSystem({ state, updateState, logEvent }: HintSystemP
   const hintContent = getHintContent();
 
   return (
-    <div className="w-full space-y-3">
-      <div className="flex items-center justify-between bg-white/50 p-2 rounded-xl border border-slate-200 shadow-sm">
+    <div className="w-full space-y-3 mx-auto">
+      <div className="flex items-center justify-between bg-white/90 p-2 rounded-xl border-2 border-slate-200 shadow-lg backdrop-blur-sm">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-amber-600">
+          <div className="flex items-center gap-2 text-amber-600 ml-2">
             <Lightbulb className="w-5 h-5 fill-current" />
-            <h4 className="font-black text-xs uppercase tracking-widest">Support</h4>
+            <h4 className="font-black text-xs uppercase tracking-widest">Collaborative Support</h4>
           </div>
           
           {hintLevel > 0 && (
@@ -76,7 +76,7 @@ export default function HintSystem({ state, updateState, logEvent }: HintSystemP
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <span className="text-[10px] font-black text-slate-500 w-12 text-center">
-                LEVEL {hintLevel}/3
+                LVL {hintLevel}
               </span>
               <Button 
                 variant="ghost" 
@@ -91,13 +91,13 @@ export default function HintSystem({ state, updateState, logEvent }: HintSystemP
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pr-2">
           {hintLevel > 0 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsMinimized(!isMinimized)}
-              className="h-8 gap-2 text-slate-500 font-bold hover:text-primary"
+              className="h-8 gap-2 text-slate-500 font-bold hover:text-primary transition-colors"
             >
               {isMinimized ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               {isMinimized ? 'SHOW' : 'HIDE'}
@@ -109,9 +109,9 @@ export default function HintSystem({ state, updateState, logEvent }: HintSystemP
               variant="outline" 
               size="sm" 
               onClick={handleNextHint}
-              className="h-8 gap-2 rounded-lg border-2 border-amber-200 text-amber-700 hover:bg-amber-50 font-bold"
+              className="h-8 gap-2 rounded-lg border-2 border-amber-200 text-amber-700 hover:bg-amber-50 font-black text-[10px] transition-all"
             >
-              GET HINT
+              UNLOCK HINT
               <ChevronRight className="w-4 h-4" />
             </Button>
           )}
@@ -119,14 +119,14 @@ export default function HintSystem({ state, updateState, logEvent }: HintSystemP
       </div>
 
       {!isMinimized && hintLevel > 0 && hintContent && (
-        <Card className="border-2 border-amber-100 bg-amber-50/40 overflow-hidden animate-in slide-in-from-top-2 shadow-sm">
-          <CardContent className="p-4 flex gap-4 items-start">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 shadow-sm border border-amber-200">
-              <span className="text-amber-700 font-black text-lg">{hintLevel}</span>
+        <Card className="border-2 border-amber-200 bg-amber-50/60 overflow-hidden animate-in slide-in-from-top-2 shadow-xl backdrop-blur-sm">
+          <CardContent className="p-4 flex gap-4 items-center">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 shadow-md border-2 border-amber-200">
+              <span className="text-amber-700 font-black text-xl">{hintLevel}</span>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-amber-800 tracking-widest opacity-60">
-                {hintLevel === 3 ? 'Direct Scaffolding' : `Level ${hintLevel} Guidance`}
+                {hintLevel === 3 ? 'Direct Scaffolding' : `Strategic Guidance - Level ${hintLevel}`}
               </p>
               <p className="text-sm font-bold text-slate-800 leading-relaxed italic">
                 "{hintContent}"

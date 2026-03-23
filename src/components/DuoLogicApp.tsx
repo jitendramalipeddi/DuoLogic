@@ -15,7 +15,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2, Info } from 'lucide-react';
+import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function DuoLogicApp() {
   const { 
@@ -169,16 +169,22 @@ export default function DuoLogicApp() {
       </header>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-1/2 w-full p-4 overflow-hidden bg-slate-100/50 flex flex-col">
+        {/* INCREASED SIZE FOR COMMON SPACE (65%) */}
+        <div className="h-[65%] w-full p-4 overflow-hidden bg-slate-100/50 flex flex-col">
           <div className="flex-1 overflow-hidden">
             <CommonSpace state={state} updateState={updateState} logEvent={logEvent} />
           </div>
-          <div className="mt-2 px-4 pb-2">
-             <HintSystem state={state} updateState={updateState} logEvent={logEvent} />
+          
+          {/* HINT SYSTEM: Center Positioned */}
+          <div className="mt-4 flex justify-center">
+             <div className="w-full max-w-3xl px-4">
+               <HintSystem state={state} updateState={updateState} logEvent={logEvent} />
+             </div>
           </div>
         </div>
 
-        <div className="h-1/2 w-full flex border-t-2 border-slate-200 bg-white">
+        {/* USER TERRITORIES (35%) */}
+        <div className="h-[35%] w-full flex border-t-2 border-slate-200 bg-white">
           <UserTerritory 
             userId={1} 
             state={state} 
