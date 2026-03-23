@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -15,10 +14,8 @@ interface KMapGridProps {
 }
 
 export default function KMapGrid({ state, updateState, logEvent, activeUserId, readOnly = false }: KMapGridProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   
-  // Grey code indices for 4-variable K-map (00, 01, 11, 10)
   const greyOrder = [0, 1, 3, 2];
   
   const getCellIndex = (r: number, c: number) => {
@@ -62,7 +59,8 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
   const handlePointerDown = (e: React.PointerEvent, r: number, c: number) => {
     if (readOnly || state.kmapSubStage !== 'group') return;
     
-    // For touch devices, we capture the pointer to track movement across cells
+    // Prevent default to stop context menus/selection
+    e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     
     setSelectionStart({ row: r, col: c });
@@ -147,7 +145,10 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4 select-none touch-none" ref={containerRef}>
+    <div 
+      className="flex flex-col items-center space-y-4 select-none touch-none" 
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <div className="flex space-x-8 mb-2">
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-red-400 opacity-50 border-2 border-red-500 rounded"></div>
@@ -160,11 +161,9 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
       </div>
       
       <div className="relative p-10 bg-slate-100/50 border-2 border-slate-200 rounded-2xl shadow-inner">
-        {/* Row labels */}
         <div className="absolute left-0 top-10 bottom-10 flex flex-col justify-around text-[10px] font-black font-mono -translate-x-full pr-4 text-slate-400">
           <span>AB=00</span><span>01</span><span>11</span><span>10</span>
         </div>
-        {/* Col labels */}
         <div className="absolute top-0 left-10 right-10 flex justify-around text-[10px] font-black font-mono -translate-y-full pb-4 text-slate-400">
           <span>CD=00</span><span>01</span><span>11</span><span>10</span>
         </div>
@@ -194,44 +193,41 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
           ))}
         </div>
 
-        {/* Grouping Overlays */}
-        {state.kmapSubStage === 'group' && (
-          <div className="absolute inset-10 pointer-events-none">
-            {renderGhostSelection()}
-            {state.userGroupings.map((g) => {
-              const minRow = Math.min(...g.cells.map(c => c.row));
-              const maxRow = Math.max(...g.cells.map(c => c.row));
-              const minCol = Math.min(...g.cells.map(c => c.col));
-              const maxCol = Math.max(...g.cells.map(c => c.col));
-              
-              const style = {
-                top: `${minRow * 25}%`,
-                left: `${minCol * 25}%`,
-                width: `${(maxCol - minCol + 1) * 25}%`,
-                height: `${(maxRow - minRow + 1) * 25}%`,
-              };
+        <div className="absolute inset-10 pointer-events-none">
+          {renderGhostSelection()}
+          {state.userGroupings.map((g) => {
+            const minRow = Math.min(...g.cells.map(c => c.row));
+            const maxRow = Math.max(...g.cells.map(c => c.row));
+            const minCol = Math.min(...g.cells.map(c => c.col));
+            const maxCol = Math.max(...g.cells.map(c => c.col));
+            
+            const style = {
+              top: `${minRow * 25}%`,
+              left: `${minCol * 25}%`,
+              width: `${(maxCol - minCol + 1) * 25}%`,
+              height: `${(maxRow - minRow + 1) * 25}%`,
+            };
 
-              return (
-                <div 
-                  key={g.id}
-                  className={`absolute border-2 rounded-lg flex items-start justify-end p-1 pointer-events-auto group ${
-                    g.userId === 1 ? 'bg-red-500/20 border-red-500' : 'bg-blue-500/20 border-blue-500'
-                  }`}
-                  style={style}
-                >
-                  {!readOnly && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); removeGrouping(g.id); }}
-                      className="w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+            return (
+              <div 
+                key={g.id}
+                className={`absolute border-2 rounded-lg flex items-start justify-end p-1 pointer-events-auto group ${
+                  g.userId === 1 ? 'bg-red-500/20 border-red-500' : 'bg-blue-500/20 border-blue-500'
+                }`}
+                style={style}
+              >
+                {!readOnly && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); removeGrouping(g.id); }}
+                    className="w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {state.kmapSubStage === 'group' && !readOnly && (

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -44,6 +43,8 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
 
   const startWiring = (e: React.PointerEvent, id: string, pin: number, type: 'in' | 'out') => {
     e.stopPropagation();
+    // Use setPointerCapture to ensure dragging works well on touch
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setWireStart({ id, pin, type });
     logEvent('wire_start', { id, pin, type });
   };
@@ -62,6 +63,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
         toPin: to.pin
       };
 
+      // Ensure single input per pin
       const filteredWires = state.wires.filter(w => !(w.toId === to.id && w.toPin === to.pin));
       updateState({ wires: [...filteredWires, newWire] });
       logEvent('wire_connect', { fromId: from.id, toId: to.id });
@@ -117,9 +119,9 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
 
           let output: number | undefined;
           if (gate.type === 'AND' && inValues.length === 2 && inValues.every(v => v !== undefined)) 
-            output = inValues[0] && inValues[1];
+            output = inValues[0] && inValues[1] ? 1 : 0;
           if (gate.type === 'OR' && inValues.length === 2 && inValues.every(v => v !== undefined)) 
-            output = inValues[0] || inValues[1];
+            output = inValues[0] || inValues[1] ? 1 : 0;
           if (gate.type === 'NOT' && inValues.length === 1 && inValues[0] !== undefined) 
             output = inValues[0] === 0 ? 1 : 0;
 
@@ -159,13 +161,52 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     logEvent('final_submission', { success: true });
   };
 
+  const getPinAtPos = (x: number, y: number) => {
+    // Basic hit test for pins during pointer up
+    for (const comp of state.circuitComponents) {
+      // Check Output pin
+      if (comp.type !== 'LED') {
+        const p = getPinPos(comp.id, 0, 'out');
+        const d = Math.sqrt((p.x - x)**2 + (p.y - y)**2);
+        if (d < 30) return { id: comp.id, pin: 0, type: 'out' as const };
+      }
+      // Check Input pins
+      if (comp.type !== 'INPUT') {
+        const pins = comp.type === 'NOT' || comp.type === 'LED' ? [0] : [0, 1];
+        for (const pinIdx of pins) {
+          const p = getPinPos(comp.id, pinIdx, 'in');
+          const d = Math.sqrt((p.x - x)**2 + (p.y - y)**2);
+          if (d < 30) return { id: comp.id, pin: pinIdx, type: 'in' as const };
+        }
+      }
+    }
+    return null;
+  };
+
+  const handlePointerUpGlobal = (e: React.PointerEvent) => {
+    if (wireStart) {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const targetPin = getPinAtPos(x, y);
+      if (targetPin) {
+        endWiring(e, targetPin.id, targetPin.pin, targetPin.type);
+      } else {
+        setWireStart(null);
+      }
+    }
+    setDraggingCompId(null);
+  };
+
   return (
     <div 
-      className="relative h-full w-full bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden touch-none"
+      className="relative h-full w-full bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden touch-none select-none"
       ref={containerRef}
       onPointerMove={handlePointerMove}
-      onPointerUp={() => { setDraggingCompId(null); setWireStart(null); }}
-      onPointerLeave={() => { setDraggingCompId(null); setWireStart(null); }}
+      onPointerUp={handlePointerUpGlobal}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <div className="absolute top-4 left-4 z-40 flex flex-col gap-3 max-w-sm">
         <div className="flex gap-2">
@@ -203,14 +244,22 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
           const end = getPinPos(wire.toId, wire.toPin, 'in');
           return (
             <g key={wire.id} className="pointer-events-auto cursor-pointer group">
+              {/* Hit area for easier clicking on wires */}
+              <path 
+                d={`M ${start.x} ${start.y} C ${start.x + 40} ${start.y}, ${end.x - 40} ${end.y}, ${end.x} ${end.y}`}
+                stroke="transparent"
+                strokeWidth="20"
+                fill="none"
+                className="cursor-pointer"
+                onClick={() => deleteWire(wire.id)}
+              />
               <path 
                 d={`M ${start.x} ${start.y} C ${start.x + 40} ${start.y}, ${end.x - 40} ${end.y}, ${end.x} ${end.y}`}
                 stroke="#3b82f6"
                 strokeWidth="6"
                 fill="none"
                 strokeLinecap="round"
-                className="hover:stroke-red-400 transition-colors"
-                onClick={() => deleteWire(wire.id)}
+                className="group-hover:stroke-red-400 transition-colors"
               />
               <path 
                 d={`M ${start.x} ${start.y} C ${start.x + 40} ${start.y}, ${end.x - 40} ${end.y}, ${end.x} ${end.y}`}
@@ -263,11 +312,10 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
 
           {(comp.type !== 'LED') && (
             <div 
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-8 h-8 flex items-center justify-center z-30"
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-12 h-12 flex items-center justify-center z-30"
               onPointerDown={(e) => startWiring(e, comp.id, 0, 'out')}
-              onPointerUp={(e) => endWiring(e, comp.id, 0, 'out')}
             >
-              <div className="w-4 h-4 rounded-full bg-slate-900 border-2 border-white group-hover:scale-125 transition-transform" />
+              <div className="w-5 h-5 rounded-full bg-slate-900 border-2 border-white group-hover:scale-125 transition-transform" />
             </div>
           )}
 
@@ -278,12 +326,11 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
               return (
                 <div 
                   key={pinIdx}
-                  className="absolute left-0 w-8 h-8 flex items-center justify-center z-30 -translate-x-1/2"
-                  style={{ top: spacing * (pinIdx + 1) - 16 }}
+                  className="absolute left-0 w-12 h-12 flex items-center justify-center z-30 -translate-x-1/2"
+                  style={{ top: spacing * (pinIdx + 1) - 24 }}
                   onPointerDown={(e) => startWiring(e, comp.id, pinIdx, 'in')}
-                  onPointerUp={(e) => endWiring(e, comp.id, pinIdx, 'in')}
                 >
-                  <div className="w-4 h-4 rounded-full bg-slate-900 border-2 border-white group-hover:scale-125 transition-transform" />
+                  <div className="w-5 h-5 rounded-full bg-slate-900 border-2 border-white group-hover:scale-125 transition-transform" />
                 </div>
               );
             })

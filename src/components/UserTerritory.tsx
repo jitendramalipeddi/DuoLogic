@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface UserTerritoryProps {
@@ -187,10 +187,15 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     logEvent('add_gate', { userId, type, gateId: newComp.id });
   };
 
-  const bothExpressionsReady = state.expressions[1] !== '' && state.expressions[2] !== '';
+  const removeGroup = (id: string) => {
+    updateState({ userGroupings: state.userGroupings.filter(g => g.id !== id) });
+    logEvent('group_deletion_territory', { userId, groupId: id });
+  };
+
+  const userGroups = state.userGroupings.filter(g => g.userId === userId);
 
   return (
-    <div className={`${className} flex flex-col space-y-4 h-full overflow-hidden`}>
+    <div className={`${className} flex flex-col space-y-4 h-full overflow-hidden`} onContextMenu={(e) => e.preventDefault()}>
       <div className="flex items-center justify-between border-b pb-2">
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${accentColor} shadow-sm animate-pulse`} />
@@ -270,6 +275,25 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             </div>
             
             <div className="w-full px-4 -mt-10">
+              {state.kmapSubStage === 'group' && userGroups.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400">
+                    <ListFilter className="w-3 h-3" />
+                    Your Selected Groups
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {userGroups.map((g, idx) => (
+                      <div key={g.id} className={`flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-bold ${isUser1 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                        Group {idx + 1} ({g.cells.length} cells)
+                        <button onClick={() => removeGroup(g.id)} className="hover:opacity-70">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="bg-slate-100/80 border-2 border-slate-200 rounded-2xl p-4 mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   {state.kmapSubStage === 'fill' ? <MousePointer2 className="w-4 h-4 text-amber-600" /> : <Layers className="w-4 h-4 text-blue-600" />}
@@ -331,7 +355,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
               </Alert>
             )}
              
-             {bothExpressionsReady ? (
+             {state.expressions[1] !== '' && state.expressions[2] !== '' ? (
                <Button 
                   onClick={handleProceedToSimulator}
                   className={`w-full h-16 text-xl font-black rounded-xl shadow-xl bg-primary gap-2 animate-pulse`}
