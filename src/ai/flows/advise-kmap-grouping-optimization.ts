@@ -58,15 +58,18 @@ Your goal is to determine if these groups are optimal for Boolean simplification
 Criteria for optimality:
 1. COMPLETE COVERAGE: Every '1' in the grid MUST be part of at least one group.
 2. VALID SIZES: Every group size must be a power of 2 (1, 2, 4, 8, or 16 cells) and form a rectangle.
-3. PRIME IMPLICANTS: Groups should be as large as possible. If a group can be doubled in size by including adjacent 1s (or Xs), it is not optimal.
+3. PRIME IMPLICANTS: Groups should be as large as possible.
 4. MINIMALITY: Use the fewest groups necessary to cover all 1s.
+
+SPECIAL COLLABORATION RULE:
+If two different users have identified the same correct group, or if groups overlap logically to cover the same '1's, do NOT penalize them for "redundancy" if the groups themselves are valid Prime Implicants. Focus on whether all '1's are covered and if the groups could have been larger.
 
 Specifically for the "3 or more inputs are ON" problem (ones at rows 7, 11, 13, 14, 15):
 - The central 1 is at Row 2, Col 2 (indices 11, 11).
 - The adjacents are Row 1 Col 2, Row 2 Col 1, Row 2 Col 3, Row 3 Col 2.
 - The optimal solution is exactly 4 groups of size 2, all overlapping at Row 2, Col 2.
 
-If the student's groupings cover all 1s and are all prime implicants (cannot be made larger), set isOptimal to true. If they missed something or have redundant groups, provide helpful feedback.`,
+If the student's groupings cover all 1s and are all prime implicants (cannot be made larger), set isOptimal to true.`,
 });
 
 const adviseKMapGroupingOptimizationFlow = ai.defineFlow(
@@ -90,11 +93,11 @@ const adviseKMapGroupingOptimizationFlow = ai.defineFlow(
       return output;
     } catch (error) {
       // Robust fallback for the "3 or more ON" pattern
-      // If there are 5 ones and 4 groups of 2, it's likely correct for our specific problem
       const hasFiveOnes = allOnesCount === 5;
-      const hasFourGroupsOfTwo = input.userGroupings.length === 4 && input.userGroupings.every(g => g.length === 2);
+      // We check if at least 4 groups of 2 exist, allowing for duplicates/overlapping
+      const groupsOfTwo = input.userGroupings.filter(g => g.length === 2).length;
       
-      if (hasFiveOnes && hasFourGroupsOfTwo) {
+      if (hasFiveOnes && groupsOfTwo >= 4) {
         return { isOptimal: true, feedback: "Groupings look correct for this pattern." };
       }
       

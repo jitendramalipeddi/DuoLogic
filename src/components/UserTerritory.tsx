@@ -180,7 +180,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       id: `gate-${Math.random().toString(36).substr(2, 9)}`,
       type,
       userId,
-      x: 200 + Math.random() * 200,
+      x: 400 + Math.random() * 200, // Shifted to pop in the right side
       y: 100 + Math.random() * 200
     };
     updateState({ circuitComponents: [...state.circuitComponents, newComp] });
