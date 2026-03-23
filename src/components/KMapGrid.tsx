@@ -3,19 +3,20 @@
 
 import React, { useState, useRef } from 'react';
 import { GameState, KMapGrouping } from '@/hooks/useGameState';
-import { X, MousePointer2, Layers } from 'lucide-react';
+import { X, MousePointer2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface KMapGridProps {
   state: GameState;
   updateState: (updates: Partial<GameState>) => void;
   logEvent: (type: string, data: any) => void;
-  activeUserId?: number; // If provided, only allow this user to interact
+  activeUserId?: number; 
   readOnly?: boolean;
 }
 
 export default function KMapGrid({ state, updateState, logEvent, activeUserId, readOnly = false }: KMapGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   
   // Grey code indices for 4-variable K-map (00, 01, 11, 10)
   const greyOrder = [0, 1, 3, 2];
@@ -35,7 +36,6 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
     const idx = getCellIndex(r, c);
     const currentVal = state.userKMapValues[idx];
     
-    // Cycle values: -1 -> 0 -> 1 -> X (2) -> -1
     let newVal;
     if (currentVal === -1) newVal = 0;
     else if (currentVal === 0) newVal = 1;
@@ -48,29 +48,49 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
     logEvent('kmap_value_toggle', { userId: activeUserId, row: r, col: c, value: newVal });
   };
 
-  const handlePointerDown = (r: number, c: number) => {
+  const getCellFromPointer = (e: React.PointerEvent) => {
+    if (!gridRef.current) return null;
+    const rect = gridRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const col = Math.max(0, Math.min(3, Math.floor((x / rect.width) * 4)));
+    const row = Math.max(0, Math.min(3, Math.floor((y / rect.height) * 4)));
+    return { row, col };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent, r: number, c: number) => {
     if (readOnly || state.kmapSubStage !== 'group') return;
+    
+    // For touch devices, we capture the pointer to track movement across cells
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    
     setSelectionStart({ row: r, col: c });
     setCurrentHover({ row: r, col: c });
   };
 
-  const handlePointerEnter = (r: number, c: number) => {
-    if (selectionStart) {
-      setCurrentHover({ row: r, col: c });
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!selectionStart || readOnly || state.kmapSubStage !== 'group') return;
+    
+    const cell = getCellFromPointer(e);
+    if (cell && (!currentHover || currentHover.row !== cell.row || currentHover.col !== cell.col)) {
+      setCurrentHover(cell);
     }
   };
 
-  const handlePointerUp = (r: number, c: number) => {
+  const handlePointerUp = (e: React.PointerEvent) => {
     if (!selectionStart || readOnly || state.kmapSubStage !== 'group') {
       setSelectionStart(null);
       setCurrentHover(null);
       return;
     }
     
-    const minRow = Math.min(selectionStart.row, r);
-    const maxRow = Math.max(selectionStart.row, r);
-    const minCol = Math.min(selectionStart.col, c);
-    const maxCol = Math.max(selectionStart.col, c);
+    const cell = getCellFromPointer(e) || currentHover || selectionStart;
+    
+    const minRow = Math.min(selectionStart.row, cell.row);
+    const maxRow = Math.max(selectionStart.row, cell.row);
+    const minCol = Math.min(selectionStart.col, cell.col);
+    const maxCol = Math.max(selectionStart.col, cell.col);
 
     const cells = [];
     for (let i = minRow; i <= maxRow; i++) {
@@ -79,7 +99,6 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
       }
     }
 
-    // Only allow powers of 2 (1, 2, 4, 8, 16)
     const size = cells.length;
     const isPowerOfTwo = (size & (size - 1)) === 0 && size > 0;
 
@@ -128,7 +147,7 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4 select-none touch-none">
+    <div className="flex flex-col items-center space-y-4 select-none touch-none" ref={containerRef}>
       <div className="flex space-x-8 mb-2">
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-red-400 opacity-50 border-2 border-red-500 rounded"></div>
@@ -140,7 +159,7 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
         </div>
       </div>
       
-      <div className="relative p-10 bg-slate-100/50 border-2 border-slate-200 rounded-2xl shadow-inner" ref={containerRef}>
+      <div className="relative p-10 bg-slate-100/50 border-2 border-slate-200 rounded-2xl shadow-inner">
         {/* Row labels */}
         <div className="absolute left-0 top-10 bottom-10 flex flex-col justify-around text-[10px] font-black font-mono -translate-x-full pr-4 text-slate-400">
           <span>AB=00</span><span>01</span><span>11</span><span>10</span>
@@ -150,7 +169,11 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
           <span>CD=00</span><span>01</span><span>11</span><span>10</span>
         </div>
 
-        <div className="grid grid-cols-4 gap-0 border-4 border-slate-400 bg-white shadow-2xl overflow-hidden rounded-sm">
+        <div 
+          ref={gridRef}
+          className="grid grid-cols-4 gap-0 border-4 border-slate-400 bg-white shadow-2xl overflow-hidden rounded-sm touch-none"
+          onPointerMove={handlePointerMove}
+        >
           {Array.from({ length: 4 }).map((_, r) => (
             Array.from({ length: 4 }).map((_, c) => {
               const idx = getCellIndex(r, c);
@@ -159,11 +182,10 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
                 <div 
                   key={`${r}-${c}`}
                   className={`w-16 h-16 border border-slate-200 flex items-center justify-center text-xl font-black font-mono transition-colors relative z-10 ${
-                    state.kmapSubStage === 'fill' ? 'hover:bg-amber-50 cursor-pointer' : 'hover:bg-blue-50 cursor-crosshair'
+                    state.kmapSubStage === 'fill' ? 'hover:bg-amber-50 cursor-pointer' : 'cursor-crosshair'
                   }`}
-                  onPointerDown={() => state.kmapSubStage === 'fill' ? handleCellClick(r, c) : handlePointerDown(r, c)}
-                  onPointerEnter={() => handlePointerEnter(r, c)}
-                  onPointerUp={() => handlePointerUp(r, c)}
+                  onPointerDown={(e) => state.kmapSubStage === 'fill' ? handleCellClick(r, c) : handlePointerDown(e, r, c)}
+                  onPointerUp={handlePointerUp}
                 >
                   {val === -1 ? '?' : val === 2 ? 'X' : val}
                 </div>
@@ -231,4 +253,3 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
     </div>
   );
 }
-

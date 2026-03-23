@@ -1,10 +1,11 @@
+
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { GameState, CircuitComponent, WireConnection } from '@/hooks/useGameState';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb, X } from 'lucide-react';
+import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
 
 interface CircuitCanvasProps {
   state: GameState;
@@ -32,7 +33,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
 
     if (draggingCompId) {
       const comp = state.circuitComponents.find(c => c.id === draggingCompId);
-      // Allow dragging any component that isn't a primary fixed input
       if (comp && comp.type !== 'INPUT') {
         const newComps = state.circuitComponents.map(c => 
           c.id === draggingCompId ? { ...c, x: x - GATE_WIDTH/2, y: y - GATE_HEIGHT/2 } : c
@@ -242,7 +242,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
           } ${
             comp.type === 'AND' ? 'gate-and' : comp.type === 'OR' ? 'gate-or' : 
             comp.type === 'NOT' ? 'gate-not' : 'bg-white'
-          } ${comp.type === 'LED' && simulatedLedOutput === 1 ? 'ring-8 ring-yellow-400 shadow-yellow-300' : ''}`}
+          } ${comp.type === 'LED' && simulatedLedOutput === 1 ? 'ring-8 ring-yellow-400 shadow-yellow-300' : ''} touch-none`}
           style={{ top: comp.y, left: comp.x, width: `${GATE_WIDTH}px`, height: `${GATE_HEIGHT}px` }}
         >
           <div 
