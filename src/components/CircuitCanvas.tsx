@@ -23,7 +23,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
   const [simulatedLedOutput, setSimulatedLedOutput] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Use Pointer Events for unified touch/mouse support
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -33,7 +32,8 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
 
     if (draggingCompId) {
       const comp = state.circuitComponents.find(c => c.id === draggingCompId);
-      if (comp && comp.userId !== 0) {
+      // Allow dragging any component that isn't a primary fixed input
+      if (comp && comp.type !== 'INPUT') {
         const newComps = state.circuitComponents.map(c => 
           c.id === draggingCompId ? { ...c, x: x - GATE_WIDTH/2, y: y - GATE_HEIGHT/2 } : c
         );
@@ -62,7 +62,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
         toPin: to.pin
       };
 
-      // Remove any existing wires to the same input pin
       const filteredWires = state.wires.filter(w => !(w.toId === to.id && w.toPin === to.pin));
       updateState({ wires: [...filteredWires, newWire] });
       logEvent('wire_connect', { fromId: from.id, toId: to.id });
@@ -94,7 +93,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     let allMatch = true;
     const failures = [];
 
-    // Check all 16 combinations
     for (let i = 0; i < 16; i++) {
       const inputs = {
         'in-A': (i >> 3) & 1,
@@ -131,7 +129,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
           }
         });
 
-        // Resolve LED input
         const ledWire = state.wires.find(w => w.toId === 'out-LED');
         if (ledWire && gateValues[ledWire.fromId] !== undefined) {
           gateValues['out-LED'] = gateValues[ledWire.fromId];
@@ -250,7 +247,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
         >
           <div 
             className={`h-1/3 w-full flex items-center justify-between px-3 rounded-t-xl ${comp.userId === 0 ? 'bg-slate-300' : 'bg-black/30'} cursor-grab active:cursor-grabbing text-slate-800`}
-            onPointerDown={(e) => { e.stopPropagation(); if(comp.userId !== 0) setDraggingCompId(comp.id); }}
+            onPointerDown={(e) => { e.stopPropagation(); if(comp.type !== 'INPUT') setDraggingCompId(comp.id); }}
           >
             <span className="text-[10px] font-black tracking-widest opacity-80">
               {comp.userId === 0 ? 'FIXED' : `P${comp.userId}`}

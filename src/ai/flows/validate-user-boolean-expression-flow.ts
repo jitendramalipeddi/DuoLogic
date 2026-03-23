@@ -1,6 +1,7 @@
 'use server';
 /**
  * @fileOverview Validates user boolean expressions against an ideal solution.
+ * Focuses on logical equivalence regardless of term order.
  */
 
 import {ai} from '@/ai/genkit';
@@ -29,14 +30,14 @@ const validateUserBooleanExpressionPrompt = ai.definePrompt({
 User's Expression: {{{userExpression}}}
 Ideal Reference: {{{idealExpression}}}
 
-Guidelines:
-1. Ignore common prefixes like "F =", "F(A,B,C,D) =", or "Output =".
-2. Treat '+' as OR, juxtaposition or '.' as AND, and symbols like ' (apostrophe) or ! as NOT.
-3. Expressions are equivalent if they produce the same truth table.
-4. If the user expression is a valid simplification (even if it uses different identities than the ideal), it should be marked as correct.
+CRITICAL RULES:
+1. ORDER INDEPENDENCE: The order of terms in a sum-of-products (SOP) expression DOES NOT MATTER. For example, "ABC + ABD" is identical to "ABD + ABC".
+2. LOGICAL EQUIVALENCE: Use Boolean algebra rules (Commutative, Associative, Distributive, etc.) to determine if they describe the same truth table.
+3. PREFIXES: Ignore common prefixes like "F =", "Output =", etc.
+4. SYNTAX: Treat '+' as OR, juxtaposition as AND, and symbols like ' (apostrophe) or ! as NOT.
 
-If they are equivalent, set isCorrect to true.
-If they are NOT equivalent, provide a concise explanation of which minterm/row might be wrong or what logic is missing.`,
+If the expressions are logically equivalent (even if the order of terms or variables within terms differs), set isCorrect to true.
+If they are NOT equivalent, provide a concise explanation focusing on what logic is missing or incorrect.`,
 });
 
 export async function validateUserBooleanExpression(input: ValidateBooleanExpressionInput): Promise<ValidateBooleanExpressionOutput> {
@@ -56,17 +57,19 @@ const validateUserBooleanExpressionFlow = ai.defineFlow(
       return output;
     } catch (error) {
       console.error('Validation flow failed:', error);
-      // Fallback: If AI fails, do a normalized string comparison for the "3 or more ON" case
-      const normalizedUser = input.userExpression.replace(/\s/g, '').toUpperCase();
-      const normalizedIdeal = input.idealExpression.replace(/\s/g, '').toUpperCase().replace(/^F=/, '');
+      
+      // Fallback: Basic normalization check
+      const normalize = (s: string) => s.replace(/\s/g, '').toUpperCase().replace(/^F=/, '').split('+').sort().join('+');
+      const normalizedUser = normalize(input.userExpression);
+      const normalizedIdeal = normalize(input.idealExpression);
       
       if (normalizedUser === normalizedIdeal) {
-        return { isCorrect: true, feedback: "Direct match verified by fallback." };
+        return { isCorrect: true, feedback: "Direct match verified by fallback logic." };
       }
       
       return { 
         isCorrect: false, 
-        feedback: "The logic engine encountered an error. Please double-check your syntax (e.g. ABC + BCD)." 
+        feedback: "The logic engine encountered an error. Please double-check your Boolean syntax (e.g. ABC + BCD)." 
       };
     }
   }

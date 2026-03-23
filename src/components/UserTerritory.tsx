@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface UserTerritoryProps {
@@ -20,7 +20,7 @@ interface UserTerritoryProps {
 }
 
 export default function UserTerritory({ userId, state, updateState, logEvent, className }: UserTerritoryProps) {
-  const [expressionInput, setExpressionInput] = useState('');
+  const [expressionInput, setExpressionInput] = useState(state.expressions[userId] || '');
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -96,10 +96,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     setValidating(true);
     setValidationError(null);
 
-    // Grey code indices for 4-variable K-map (00, 01, 11, 10)
     const greyOrder = [0, 1, 3, 2];
-    
-    // Convert flat array (indexed by truth table row) to 4x4 grid expected by AI
     const grid: string[][] = [];
     for (let r = 0; r < 4; r++) {
       const rowData: string[] = [];
@@ -171,6 +168,13 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     }
   };
 
+  const handleProceedToSimulator = () => {
+    if (state.expressions[1] && state.expressions[2]) {
+      updateState({ stage: 'simulator' });
+      logEvent('navigation_proceed_simulator', {});
+    }
+  };
+
   const addGate = (type: 'AND' | 'OR' | 'NOT') => {
     const newComp = {
       id: `gate-${Math.random().toString(36).substr(2, 9)}`,
@@ -182,6 +186,8 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     updateState({ circuitComponents: [...state.circuitComponents, newComp] });
     logEvent('add_gate', { userId, type, gateId: newComp.id });
   };
+
+  const bothExpressionsReady = state.expressions[1] !== '' && state.expressions[2] !== '';
 
   return (
     <div className={`${className} flex flex-col space-y-4 h-full overflow-hidden`}>
@@ -324,13 +330,23 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                 <AlertDescription className="text-xs">{validationError}</AlertDescription>
               </Alert>
             )}
-             <Button 
-                onClick={handleSubmitExpression} 
-                disabled={validating || state.expressions[userId] !== ''}
-                className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2`}
-             >
-                {state.expressions[userId] ? 'AWAITING PEER...' : validating ? <><Loader2 className="w-5 h-5 animate-spin" /> ANALYZING...</> : 'SUBMIT SOLUTION'}
-             </Button>
+             
+             {bothExpressionsReady ? (
+               <Button 
+                  onClick={handleProceedToSimulator}
+                  className={`w-full h-16 text-xl font-black rounded-xl shadow-xl bg-primary gap-2 animate-pulse`}
+               >
+                  PROCEED TO SIMULATOR <ArrowRight className="w-6 h-6" />
+               </Button>
+             ) : (
+               <Button 
+                  onClick={handleSubmitExpression} 
+                  disabled={validating || state.expressions[userId] !== ''}
+                  className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2`}
+               >
+                  {state.expressions[userId] ? 'AWAITING PEER...' : validating ? <><Loader2 className="w-5 h-5 animate-spin" /> ANALYZING...</> : 'SUBMIT SOLUTION'}
+               </Button>
+             )}
           </div>
         )}
 
