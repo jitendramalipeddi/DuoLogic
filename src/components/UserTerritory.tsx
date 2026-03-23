@@ -206,19 +206,33 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       </div>
 
       <div className="flex-1 overflow-auto">
-        {state.stage === 'intro' && !state.accepted[userId] && (
+        {state.stage === 'intro' && (
           <div className="flex flex-col items-center justify-center h-full space-y-6">
-            <div className="text-center space-y-2">
-              <p className="font-bold text-lg">Ready to begin?</p>
-              <p className="text-muted-foreground text-sm px-8">Confirm your participation to start the logic design challenge.</p>
-            </div>
-            <Button 
-              size="lg" 
-              className={`w-48 h-20 text-2xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-              onClick={handleAccept}
-            >
-              ACCEPT
-            </Button>
+            {!state.accepted[userId] ? (
+              <>
+                <div className="text-center space-y-2">
+                  <p className="font-bold text-lg">Ready to begin?</p>
+                  <p className="text-muted-foreground text-sm px-8">Confirm your participation to start the logic design challenge.</p>
+                </div>
+                <Button 
+                  size="lg" 
+                  className={`w-48 h-20 text-2xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  onClick={handleAccept}
+                >
+                  ACCEPT
+                </Button>
+              </>
+            ) : (
+              <div className="text-center space-y-4 animate-pulse">
+                <div className={`w-16 h-16 rounded-full ${accentColor} opacity-20 mx-auto flex items-center justify-center`}>
+                  <Loader2 className={`w-8 h-8 ${textColor} animate-spin`} />
+                </div>
+                <div>
+                  <p className="font-black text-xl tracking-tight">RESPONSE RECORDED</p>
+                  <p className="text-muted-foreground font-bold">Waiting for your partner to join...</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
