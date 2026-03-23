@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -222,7 +223,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       onPointerUp={handlePointerUpGlobal}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* SHIFTED TO RIGHT: Controls & Result Alert */}
       <div className="absolute top-4 right-4 z-40 flex flex-col items-end gap-3 max-w-sm text-right">
         <div className="flex gap-2">
           <Button size="lg" onClick={runSimulation} className="bg-primary hover:bg-primary/90 font-bold shadow-xl gap-2 h-14 px-6 text-lg">
@@ -265,7 +265,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
                 strokeWidth="20"
                 fill="none"
                 className="cursor-pointer"
-                onClick={() => deleteWire(wire.id)}
+                onDoubleClick={() => deleteWire(wire.id)}
               />
               <path 
                 d={`M ${start.x} ${start.y} C ${start.x + 40} ${start.y}, ${end.x - 40} ${end.y}, ${end.x} ${end.y}`}
@@ -313,15 +313,14 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
             comp.type === 'NOT' ? 'gate-not' : 'bg-white'
           } ${comp.type === 'LED' && simulatedLedOutput === 1 ? 'ring-8 ring-yellow-400 shadow-yellow-300' : ''} touch-none`}
           style={{ top: comp.y, left: comp.x, width: `${GATE_WIDTH}px`, height: `${GATE_HEIGHT}px` }}
+          onPointerDown={(e) => { 
+            if(comp.type !== 'INPUT' || comp.type === 'LED') {
+              setActiveDrags(prev => ({ ...prev, [e.pointerId]: comp.id }));
+            }
+          }}
         >
           <div 
             className={`h-1/3 w-full flex items-center justify-between px-3 rounded-t-xl ${comp.userId === 0 ? 'bg-slate-300' : 'bg-black/30'} cursor-grab active:cursor-grabbing text-slate-800`}
-            onPointerDown={(e) => { 
-              e.stopPropagation(); 
-              if(comp.type !== 'INPUT' || comp.type === 'LED') {
-                setActiveDrags(prev => ({ ...prev, [e.pointerId]: comp.id }));
-              }
-            }}
           >
             <span className="text-[10px] font-black tracking-widest opacity-80">
               {comp.userId === 0 ? 'FIXED' : `P${comp.userId}`}

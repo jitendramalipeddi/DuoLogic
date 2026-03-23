@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -8,8 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter, MonitorPlay } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface UserTerritoryProps {
   userId: number;
@@ -23,6 +31,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   const [expressionInput, setExpressionInput] = useState(state.expressions[userId] || '');
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [showSimInstructions, setShowSimInstructions] = useState(false);
   const { toast } = useToast();
 
   const isUser1 = userId === 1;
@@ -150,7 +159,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         updateState({ expressions: newExpressions });
         
         if (newExpressions[1] && newExpressions[2]) {
-          updateState({ stage: 'simulator' });
+          setShowSimInstructions(true);
           logEvent('expressions_matched', { expression: expressionInput });
         }
       } else {
@@ -168,11 +177,10 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     }
   };
 
-  const handleProceedToSimulator = () => {
-    if (state.expressions[1] && state.expressions[2]) {
-      updateState({ stage: 'simulator' });
-      logEvent('navigation_proceed_simulator', {});
-    }
+  const handleConfirmSimulator = () => {
+    setShowSimInstructions(false);
+    updateState({ stage: 'simulator' });
+    logEvent('navigation_proceed_simulator', {});
   };
 
   const addGate = (type: 'AND' | 'OR' | 'NOT') => {
@@ -180,7 +188,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       id: `gate-${Math.random().toString(36).substr(2, 9)}`,
       type,
       userId,
-      x: 400 + Math.random() * 200, // Shifted to pop in the right side
+      x: 400 + Math.random() * 200, 
       y: 100 + Math.random() * 200
     };
     updateState({ circuitComponents: [...state.circuitComponents, newComp] });
@@ -371,7 +379,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              
              {state.expressions[1] !== '' && state.expressions[2] !== '' ? (
                <Button 
-                  onClick={handleProceedToSimulator}
+                  onClick={() => setShowSimInstructions(true)}
                   className={`w-full h-16 text-xl font-black rounded-xl shadow-xl bg-primary gap-2 animate-pulse`}
                >
                   PROCEED TO SIMULATOR <ArrowRight className="w-6 h-6" />
@@ -414,6 +422,42 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
           </div>
         )}
       </div>
+
+      <Dialog open={showSimInstructions} onOpenChange={setShowSimInstructions}>
+        <DialogContent className="max-w-2xl rounded-3xl p-8 border-4 border-primary">
+          <DialogHeader>
+            <DialogTitle className="text-3xl font-black uppercase tracking-tight text-primary flex items-center gap-3">
+              <MonitorPlay className="w-8 h-8" />
+              Simulator Instructions
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="space-y-4 text-slate-700">
+              <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">1</div>
+                <p className="font-bold">To add the component, please click on the component button available in each users space.</p>
+              </div>
+              <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">2</div>
+                <p className="font-bold">To remove the wires connected, double tap on the connected wire.</p>
+              </div>
+              <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">3</div>
+                <p className="font-bold">Drag the component on the circuit canvas to move it.</p>
+              </div>
+              <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">4</div>
+                <p className="font-bold">Click on the pin of the component to connect with a wire.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleConfirmSimulator} className="w-full h-16 text-2xl font-black bg-primary rounded-2xl shadow-xl hover:bg-primary/90">
+              OK, LET'S BUILD!
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
