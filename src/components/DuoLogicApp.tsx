@@ -136,7 +136,7 @@ export default function DuoLogicApp() {
         <div className="flex items-center gap-4">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="secondary" className="gap-2 rounded-xl font-black px-5 bg-slate-100 hover:bg-slate-200">
+              <Button className="gap-2 rounded-xl font-black px-6 bg-primary text-white hover:bg-primary/90 shadow-md transition-all active:scale-95">
                 <FileText className="w-5 h-5" />
                 VIEW TASK
               </Button>
