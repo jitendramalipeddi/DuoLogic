@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -36,7 +37,8 @@ export default function DuoLogicApp() {
       if (!state.problem) {
         try {
           const problem = await generateInitialLogicProblem();
-          updateState({ problem, stage: 'intro' });
+          // Keep stage as 'onboarding' (initial state) so users see the walkthrough first
+          updateState({ problem });
           logEvent('problem_initialized', { description: problem.description });
         } catch (e: any) {
           console.error("Failed to load problem", e);
@@ -128,7 +130,7 @@ export default function DuoLogicApp() {
               variant="ghost" 
               size="sm" 
               onClick={goBack} 
-              disabled={state.stage === 'intro'}
+              disabled={state.stage === 'onboarding'}
               className="text-slate-400 font-bold hover:text-primary transition-colors"
             >
               <ChevronLeft className="w-5 h-5 mr-1" />
@@ -161,12 +163,12 @@ export default function DuoLogicApp() {
               </DialogHeader>
               <div className="space-y-6 py-4">
                 <div className="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
-                  <p className="text-xl font-bold leading-relaxed text-slate-800 italic">"{state.problem?.description}"</p>
+                  <p className="text-xl font-bold leading-relaxed text-slate-800 italic">"{state.problem?.description || 'Loading task...'}"</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Available Inputs</p>
                   <div className="flex gap-3">
-                    {state.problem?.variables.map(v => (
+                    {(state.problem?.variables || ['A', 'B', 'C', 'D']).map(v => (
                       <span key={v} className="px-5 py-3 bg-primary/10 text-primary rounded-2xl font-mono text-xl font-black border-2 border-primary/20">
                         {v}
                       </span>

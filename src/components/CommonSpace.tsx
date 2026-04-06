@@ -8,7 +8,7 @@ import KMapGrid from './KMapGrid';
 import CircuitCanvas from './CircuitCanvas';
 import DiscussionView from './DiscussionView';
 import ThinkAloudPrompts from './ThinkAloudPrompts';
-import { CheckCircle2, MessageSquare, ClipboardList, Grid3X3, Layers, Calculator, PlayCircle } from 'lucide-react';
+import { CheckCircle2, MessageSquare, ClipboardList, Grid3X3, Layers, Calculator, PlayCircle, Info } from 'lucide-react';
 
 interface CommonSpaceProps {
   state: GameState;
@@ -42,18 +42,18 @@ export default function CommonSpace({ state, updateState, markPromptDone, logEve
           <div className="flex flex-col items-center py-4 px-8 max-w-3xl mx-auto space-y-8 h-full overflow-y-auto">
             <div className="text-center space-y-2">
               <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Welcome to DuoLogic!</h3>
-              <p className="text-lg font-bold text-muted-foreground italic">"Let's walk through your mission in the laboratory today..."</p>
+              <p className="text-lg font-bold text-muted-foreground italic">"Here are the steps we will take in this intervention..."</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 w-full">
               {[
-                { icon: MessageSquare, title: "1. Discussion Protocol", desc: "Follow the friendly prompts at the top of your screen to talk through your reasoning with your peer." },
-                { icon: ClipboardList, title: "2. Mission Objective", desc: "Read your specific logic challenge carefully and identify the input requirements." },
-                { icon: Grid3X3, title: "3. Truth Table Phase", desc: "Together, map out every single output for each binary input combination (0-15)." },
-                { icon: Layers, title: "4. K-Map Populating", desc: "Transfer your verified truth table values into the shared K-Map grid." },
-                { icon: CheckCircle2, title: "5. Optimal Grouping", desc: "Identify the largest possible blocks of 1s in the K-Map to simplify the logic." },
-                { icon: Calculator, title: "6. Derive Equation", desc: "Translate your K-Map groups into a final, efficient Boolean expression." },
-                { icon: PlayCircle, title: "7. Circuit Simulation", desc: "Build the circuit from gates, test it against the mission, and finish!" }
+                { icon: MessageSquare, title: "1. Discussion Protocol", desc: "Please follow the instructions that are there on the top of the screen about discussion." },
+                { icon: ClipboardList, title: "2. Reading the Problem", desc: "Read your specific logic challenge carefully and identify the input requirements." },
+                { icon: Grid3X3, title: "3. Truth Table Phase", desc: "Filling the truth table as per the requirement." },
+                { icon: Layers, title: "4. K-Map Phase", desc: "Fill the kmap as per the truth table." },
+                { icon: CheckCircle2, title: "5. Grouping Phase", desc: "Grouping the 1's in the kmap grid to simplify logic." },
+                { icon: Calculator, title: "6. Derive Equation", desc: "Come up with the Boolean expression from your groups." },
+                { icon: PlayCircle, title: "7. Circuit Simulation", desc: "Simulate the expression by building the circuit, and Finish." }
               ].map((step, idx) => (
                 <div key={idx} className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 hover:border-primary/20 transition-colors">
                   <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shrink-0 shadow-lg">
@@ -67,7 +67,10 @@ export default function CommonSpace({ state, updateState, markPromptDone, logEve
               ))}
             </div>
             <div className="pt-4 text-center">
-              <p className="text-sm font-black text-primary uppercase tracking-widest animate-pulse">Waiting for both partners to start session...</p>
+              <p className="text-sm font-black text-primary uppercase tracking-widest animate-pulse flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                Waiting for both partners to confirm they are ready...
+              </p>
             </div>
           </div>
         )}
