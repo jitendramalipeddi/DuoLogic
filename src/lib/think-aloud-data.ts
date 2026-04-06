@@ -12,9 +12,9 @@ export const STAGE_PROMPTS: Record<GameStage, string[]> = {
     "Double-check a row together: why is the output 0 or 1?"
   ],
   kmap: [
-    "Explain your grouping strategy to your partner out loud.",
-    "Why is this group a power of two? Tell your partner your reasoning.",
-    "Describe the adjacency you see in the map before you click."
+    "Discuss and fill the K-map together: Which rows from the truth table correspond to which cells?",
+    "Verbalize why you are placing a 0, 1, or X in each specific cell.",
+    "Now that it's filled, explain your grouping strategy to your partner out loud. Why are these groups optimal?"
   ],
   equation: [
     "How did you derive this specific Boolean term? Explain it to your partner.",

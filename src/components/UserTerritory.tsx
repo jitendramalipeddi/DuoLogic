@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
-import KMapGrid from './KMapGrid';
 import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter, MonitorPlay, MessageSquareQuote } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
@@ -97,6 +96,10 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   };
 
   const validateKMapFilling = () => {
+    if (!allPromptsDone) {
+      setValidationError("Please complete your discussion before validating.");
+      return;
+    }
     const errors = state.userKMapValues.filter((val, idx) => val !== -1 && val !== state.userTruthTable[idx]);
     const anyIncomplete = state.userKMapValues.some(val => val === -1);
 
@@ -112,7 +115,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       setValidationError(null);
       updateState({ kmapSubStage: 'group' });
       logEvent('kmap_fill_validation_success', {});
-      toast({ title: "K-Map Populated", description: "Values correctly mapped. Now, click and drag to identify optimal groups of 1s." });
+      toast({ title: "K-Map Populated", description: "Values correctly mapped. Now, work together to identify optimal groups of 1s." });
     }
   };
 
@@ -326,17 +329,23 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         )}
 
         {state.stage === 'kmap' && (
-          <div className="flex flex-col items-center h-full space-y-4">
-            <div className="scale-[0.65] origin-top">
-              <KMapGrid state={state} updateState={updateState} logEvent={logEvent} activeUserId={userId} />
+          <div className="flex flex-col items-center justify-center h-full space-y-6 px-4">
+            <div className="text-center space-y-2">
+              <h4 className={`text-lg font-black tracking-tight ${textColor}`}>
+                K-MAP {state.kmapSubStage === 'fill' ? 'FILLING PHASE' : 'GROUPING PHASE'}
+              </h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {state.kmapSubStage === 'fill' 
+                  ? "Collaborate with your partner on the central board to fill in the values from your truth table."
+                  : "Work together to select optimal blocks of 1s on the central board."}
+              </p>
             </div>
-            
-            <div className="w-full px-4 -mt-10">
-              {state.kmapSubStage === 'group' && userGroups.length > 0 && (
-                <div className="mb-4 space-y-2">
+
+            {state.kmapSubStage === 'group' && userGroups.length > 0 && (
+                <div className="w-full space-y-2">
                   <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400">
                     <ListFilter className="w-3 h-3" />
-                    Your Selected Groups
+                    Your Identified Groups
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {userGroups.map((g, idx) => (
@@ -351,44 +360,30 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                 </div>
               )}
 
-              <div className="bg-slate-100/80 border-2 border-slate-200 rounded-2xl p-4 mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  {state.kmapSubStage === 'fill' ? <MousePointer2 className="w-4 h-4 text-amber-600" /> : <Layers className="w-4 h-4 text-blue-600" />}
-                  <h4 className="font-black text-xs uppercase tracking-widest text-slate-800">
-                    {state.kmapSubStage === 'fill' ? 'Task 1: Fill K-Map' : 'Task 2: Select Groups'}
-                  </h4>
-                </div>
-                <p className="text-[11px] font-bold text-slate-600 leading-relaxed">
-                  {state.kmapSubStage === 'fill' 
-                    ? "Click cells to toggle between 0, 1, and X based on the truth table."
-                    : "Click and drag across cells to form blocks of 1s. Groups must be sized in powers of 2 (1, 2, 4, 8)."}
-                </p>
-              </div>
+            {validationError && (
+              <Alert variant="destructive" className="bg-red-50 border-red-200 w-full">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs font-bold">{validationError}</AlertDescription>
+              </Alert>
+            )}
 
-              {validationError && (
-                <Alert variant="destructive" className="bg-red-50 border-red-200 mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs font-bold">{validationError}</AlertDescription>
-                </Alert>
-              )}
-
-              {state.kmapSubStage === 'fill' ? (
-                <Button 
-                  onClick={validateKMapFilling}
-                  className="w-full h-14 text-lg font-black bg-amber-600 shadow-xl rounded-xl gap-2"
-                >
-                  VALIDATE K-MAP VALUES
-                </Button>
-              ) : (
-                <Button 
-                  onClick={validateKMapGroupings} 
-                  disabled={validating || !allPromptsDone}
-                  className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
-                >
-                  {validating ? <><Loader2 className="w-5 h-5 animate-spin" /> VERIFYING...</> : <><ShieldCheck className="w-5 h-5" /> VALIDATE GROUPINGS</>}
-                </Button>
-              )}
-            </div>
+            {state.kmapSubStage === 'fill' ? (
+              <Button 
+                onClick={validateKMapFilling}
+                disabled={!allPromptsDone}
+                className="w-full h-16 text-lg font-black bg-amber-600 shadow-xl rounded-xl gap-2"
+              >
+                CHECK K-MAP VALUES
+              </Button>
+            ) : (
+              <Button 
+                onClick={validateKMapGroupings} 
+                disabled={validating || !allPromptsDone}
+                className="w-full h-16 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
+              >
+                {validating ? <><Loader2 className="w-5 h-5 animate-spin" /> VERIFYING...</> : <><ShieldCheck className="w-5 h-5" /> VALIDATE OPTIMALITY</>}
+              </Button>
+            )}
           </div>
         )}
 
