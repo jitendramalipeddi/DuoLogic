@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
 import KMapGrid from './KMapGrid';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter, MonitorPlay } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter, MonitorPlay, MessageSquareQuote } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -18,6 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
 
 interface UserTerritoryProps {
   userId: number;
@@ -39,7 +39,19 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   const textColor = isUser1 ? 'text-red-600' : 'text-blue-600';
   const borderColor = isUser1 ? 'border-red-200' : 'border-blue-200';
   
+  const currentStagePrompts = STAGE_PROMPTS[state.stage] || [];
+  const completedPromptsCount = (state.completedPrompts[state.stage] || []).length;
+  const allPromptsDone = completedPromptsCount === currentStagePrompts.length;
+
   const handleAccept = () => {
+    if (!allPromptsDone) {
+      toast({
+        variant: "destructive",
+        title: "Discussion Required",
+        description: "Please discuss all points in the Think Aloud Protocol before proceeding.",
+      });
+      return;
+    }
     const newAccepted = { ...state.accepted, [userId]: true };
     updateState({ accepted: newAccepted });
     logEvent('user_accepted', { userId });
@@ -66,6 +78,10 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   };
 
   const validateTruthTable = () => {
+    if (!allPromptsDone) {
+      setValidationError("Please discuss and mark all 'Think Aloud' points as 'Done' in the Common Space.");
+      return;
+    }
     if (!state.problem) return;
     const errors = state.userTruthTable.filter((val, idx) => val !== -1 && val !== state.problem!.targetTruthTable[idx]);
     
@@ -101,6 +117,10 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   };
 
   const validateKMapGroupings = async () => {
+    if (!allPromptsDone) {
+      setValidationError("Finish the Think Aloud discussion points first!");
+      return;
+    }
     if (!state.problem) return;
     setValidating(true);
     setValidationError(null);
@@ -142,6 +162,10 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   };
 
   const handleSubmitExpression = async () => {
+    if (!allPromptsDone) {
+      setValidationError("The system is waiting for you to complete your collaborative discussion.");
+      return;
+    }
     if (!state.problem) return;
     setValidating(true);
     setValidationError(null);
@@ -211,6 +235,12 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             PARTNER {userId}
           </h3>
         </div>
+        {!allPromptsDone && (
+          <div className="flex items-center gap-1 text-[10px] font-black text-amber-600 animate-bounce">
+            <MessageSquareQuote className="w-3 h-3" />
+            DISCUSS POINTS TO UNLOCK
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto">
@@ -224,6 +254,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                 </div>
                 <Button 
                   size="lg" 
+                  disabled={!allPromptsDone}
                   className={`w-48 h-20 text-2xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                   onClick={handleAccept}
                 >
@@ -279,7 +310,11 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             )}
 
             {bothTruthTablesFilled ? (
-               <Button onClick={validateTruthTable} className="w-full h-14 text-lg font-black bg-primary shadow-xl rounded-xl gap-2">
+               <Button 
+                onClick={validateTruthTable} 
+                className="w-full h-14 text-lg font-black bg-primary shadow-xl rounded-xl gap-2"
+                disabled={!allPromptsDone}
+              >
                  <ShieldCheck className="w-5 h-5" /> VALIDATE & PROCEED
                </Button>
             ) : isSectionFilled ? (
@@ -347,7 +382,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
               ) : (
                 <Button 
                   onClick={validateKMapGroupings} 
-                  disabled={validating}
+                  disabled={validating || !allPromptsDone}
                   className="w-full h-14 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
                 >
                   {validating ? <><Loader2 className="w-5 h-5 animate-spin" /> VERIFYING...</> : <><ShieldCheck className="w-5 h-5" /> VALIDATE GROUPINGS</>}
@@ -380,14 +415,15 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              {state.expressions[1] !== '' && state.expressions[2] !== '' ? (
                <Button 
                   onClick={() => setShowSimInstructions(true)}
-                  className={`w-full h-16 text-xl font-black rounded-xl shadow-xl bg-primary gap-2 animate-pulse`}
+                  disabled={!allPromptsDone}
+                  className={`w-full h-16 text-xl font-black rounded-xl shadow-xl bg-primary gap-2 ${allPromptsDone ? 'animate-pulse' : ''}`}
                >
                   PROCEED TO SIMULATOR <ArrowRight className="w-6 h-6" />
                </Button>
              ) : (
                <Button 
                   onClick={handleSubmitExpression} 
-                  disabled={validating || state.expressions[userId] !== ''}
+                  disabled={validating || state.expressions[userId] !== '' || !allPromptsDone}
                   className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2`}
                >
                   {state.expressions[userId] ? 'AWAITING PEER...' : validating ? <><Loader2 className="w-5 h-5 animate-spin" /> ANALYZING...</> : 'SUBMIT SOLUTION'}

@@ -11,10 +11,11 @@ import ThinkAloudPrompts from './ThinkAloudPrompts';
 interface CommonSpaceProps {
   state: GameState;
   updateState: (updates: Partial<GameState>) => void;
+  markPromptDone: (stage: any, index: number) => void;
   logEvent: (type: string, data: any) => void;
 }
 
-export default function CommonSpace({ state, updateState, logEvent }: CommonSpaceProps) {
+export default function CommonSpace({ state, updateState, markPromptDone, logEvent }: CommonSpaceProps) {
   return (
     <div className="h-full w-full bg-white rounded-xl shadow-2xl border border-border p-6 flex flex-col overflow-hidden">
       <div className="mb-4 flex items-center justify-between border-b pb-2">
@@ -27,7 +28,11 @@ export default function CommonSpace({ state, updateState, logEvent }: CommonSpac
       </div>
 
       <div className="mb-4">
-        <ThinkAloudPrompts stage={state.stage} />
+        <ThinkAloudPrompts 
+          stage={state.stage} 
+          completedIndices={state.completedPrompts[state.stage] || []}
+          onMarkDone={(index) => markPromptDone(state.stage, index)}
+        />
       </div>
 
       <div className="flex-1 overflow-auto">

@@ -69,6 +69,7 @@ export interface GameState {
   logs: LogEntry[];
   isComplete: boolean;
   hintLevels: { [key in GameStage]?: number };
+  completedPrompts: { [key in GameStage]?: number[] };
 }
 
 const initialState: GameState = {
@@ -93,6 +94,7 @@ const initialState: GameState = {
   logs: [],
   isComplete: false,
   hintLevels: {},
+  completedPrompts: {},
 };
 
 export function useGameState() {
@@ -123,6 +125,20 @@ export function useGameState() {
     });
   }, []);
 
+  const markPromptDone = useCallback((stage: GameStage, index: number) => {
+    setState(prev => {
+      const current = prev.completedPrompts[stage] || [];
+      if (current.includes(index)) return prev;
+      return {
+        ...prev,
+        completedPrompts: {
+          ...prev.completedPrompts,
+          [stage]: [...current, index]
+        }
+      };
+    });
+  }, []);
+
   const goBack = useCallback(() => {
     setState(prev => {
       if (prev.stageHistory.length === 0) return prev;
@@ -132,5 +148,5 @@ export function useGameState() {
     });
   }, []);
 
-  return { state, updateState, goBack, logEvent };
+  return { state, updateState, goBack, logEvent, markPromptDone };
 }

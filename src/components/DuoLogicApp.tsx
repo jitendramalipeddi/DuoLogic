@@ -22,7 +22,8 @@ export default function DuoLogicApp() {
     state, 
     updateState, 
     goBack,
-    logEvent 
+    logEvent,
+    markPromptDone
   } = useGameState();
 
   const [loading, setLoading] = useState(true);
@@ -172,7 +173,12 @@ export default function DuoLogicApp() {
         {/* INCREASED SIZE FOR COMMON SPACE (65%) */}
         <div className="h-[65%] w-full p-4 overflow-hidden bg-slate-100/50 flex flex-col">
           <div className="flex-1 overflow-hidden">
-            <CommonSpace state={state} updateState={updateState} logEvent={logEvent} />
+            <CommonSpace 
+              state={state} 
+              updateState={updateState} 
+              markPromptDone={markPromptDone} 
+              logEvent={logEvent} 
+            />
           </div>
           
           {/* HINT SYSTEM: Center Positioned */}

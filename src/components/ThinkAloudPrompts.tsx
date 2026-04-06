@@ -3,82 +3,85 @@
 import React, { useState, useEffect } from 'react';
 import { GameStage } from '@/hooks/useGameState';
 import { Card, CardContent } from '@/components/ui/card';
-import { Megaphone, MessageSquareQuote, Zap } from 'lucide-react';
+import { MessageSquareQuote, Zap, CheckCircle2 } from 'lucide-react';
+import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
+import { Button } from '@/components/ui/button';
 
 interface ThinkAloudPromptsProps {
   stage: GameStage;
+  completedIndices: number[];
+  onMarkDone: (index: number) => void;
 }
 
-const STAGE_PROMPTS: Record<GameStage, string[]> = {
-  intro: [
-    "Discuss with your partner: What is the main goal of this logic problem?",
-    "Verbalize your initial strategy for tackling the truth table.",
-    "Talk through the input variables and what each one represents."
-  ],
-  truth_table: [
-    "Describe your reasoning for each output you're filling in.",
-    "Explain to your partner how the problem description leads to this specific row's value.",
-    "Double-check a row together: why is the output 0 or 1?"
-  ],
-  kmap: [
-    "Explain your grouping strategy to your partner out loud.",
-    "Why is this group a power of two? Tell your partner your reasoning.",
-    "Describe the adjacency you see in the map before you click."
-  ],
-  equation: [
-    "How did you derive this specific Boolean term? Explain it to your partner.",
-    "Talk through your algebraic simplification process step-by-step.",
-    "Compare your expressions: where exactly does your reasoning differ?"
-  ],
-  discussion: [
-    "Read your partner's expression out loud and explain what you think it does.",
-    "Discuss: What happens to the logic if we change one of these terms?",
-    "Voice your uncertainty: is there a part of the simplification you're both unsure about?"
-  ],
-  simulator: [
-    "Explain how this gate connection matches your Boolean expression.",
-    "What is the role of this specific gate? Tell your partner your thoughts.",
-    "Let's narrate the signal flow from input to output as we wire it."
-  ],
-  finished: [
-    "Reflect out loud: What was the most challenging part of this collaboration?",
-    "Explain to each other how you reached the final successful design."
-  ]
-};
-
-export default function ThinkAloudPrompts({ stage }: ThinkAloudPromptsProps) {
+export default function ThinkAloudPrompts({ stage, completedIndices, onMarkDone }: ThinkAloudPromptsProps) {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const prompts = STAGE_PROMPTS[stage] || [];
 
+  // Find the first uncompleted prompt or stay on the current if not completed
   useEffect(() => {
-    setCurrentPromptIndex(0);
-    const interval = setInterval(() => {
-      setCurrentPromptIndex((prev) => (prev + 1) % (prompts.length || 1));
-    }, 15000); // Rotate prompts every 15 seconds
-    return () => clearInterval(interval);
-  }, [stage, prompts.length]);
+    const firstUncompleted = prompts.findIndex((_, i) => !completedIndices.includes(i));
+    if (firstUncompleted !== -1) {
+      setCurrentPromptIndex(firstUncompleted);
+    }
+  }, [stage, prompts.length, completedIndices]);
 
   if (prompts.length === 0) return null;
 
+  const handleNext = () => {
+    setCurrentPromptIndex((prev) => (prev + 1) % prompts.length);
+  };
+
+  const isCurrentDone = completedIndices.includes(currentPromptIndex);
+  const allDone = completedIndices.length === prompts.length;
+
   return (
-    <Card className="bg-primary/5 border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-1 duration-500">
-      <CardContent className="p-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-          <MessageSquareQuote className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">
-              Think Aloud Protocol
-            </span>
-            <Zap className="w-3 h-3 text-amber-500 fill-current animate-pulse" />
+    <Card className={`transition-all duration-500 shadow-md ${allDone ? 'bg-green-50 border-green-200' : 'bg-primary/5 border-primary/20'}`}>
+      <CardContent className="p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-4">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${allDone ? 'bg-green-100' : 'bg-primary/10'}`}>
+            <MessageSquareQuote className={`w-5 h-5 ${allDone ? 'text-green-600' : 'text-primary'}`} />
           </div>
-          <p className="text-sm font-bold text-slate-800 italic leading-relaxed">
-            "{prompts[currentPromptIndex]}"
-          </p>
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${allDone ? 'text-green-600' : 'text-primary/60'}`}>
+                  Collaborative Think Aloud Protocol
+                </span>
+                {!allDone && <Zap className="w-3 h-3 text-amber-500 fill-current animate-pulse" />}
+              </div>
+              <div className="text-[10px] font-bold text-slate-400 tabular-nums">
+                {completedIndices.length}/{prompts.length} DISCUSSION POINTS COMPLETED
+              </div>
+            </div>
+            <p className={`text-sm font-bold italic leading-relaxed ${isCurrentDone ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+              "{prompts[currentPromptIndex]}"
+            </p>
+          </div>
         </div>
-        <div className="text-[10px] font-bold text-slate-400 tabular-nums">
-          {currentPromptIndex + 1}/{prompts.length}
+
+        <div className="flex justify-end gap-2">
+          {!isCurrentDone ? (
+            <Button 
+              size="sm" 
+              onClick={() => onMarkDone(currentPromptIndex)}
+              className="bg-primary hover:bg-primary/90 text-[10px] font-black h-8 px-4 rounded-lg gap-2"
+            >
+              <CheckCircle2 className="w-4 h-4" /> MARK AS DISCUSSED
+            </Button>
+          ) : !allDone ? (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={handleNext}
+              className="text-[10px] font-black h-8 px-4 rounded-lg border-2"
+            >
+              NEXT PROMPT
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2 text-green-700 font-black text-[10px] uppercase tracking-widest">
+              <CheckCircle2 className="w-4 h-4" /> All Discussions Complete for this Stage
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

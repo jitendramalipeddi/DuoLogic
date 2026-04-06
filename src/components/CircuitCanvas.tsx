@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -6,6 +5,7 @@ import { GameState, CircuitComponent, WireConnection } from '@/hooks/useGameStat
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
+import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
 
 interface CircuitCanvasProps {
   state: GameState;
@@ -25,6 +25,10 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [simulatedLedOutput, setSimulatedLedOutput] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const currentStagePrompts = STAGE_PROMPTS[state.stage] || [];
+  const completedPromptsCount = (state.completedPrompts[state.stage] || []).length;
+  const allPromptsDone = completedPromptsCount === currentStagePrompts.length;
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!containerRef.current) return;
@@ -165,6 +169,14 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
   };
 
   const handleFinalSubmit = () => {
+    if (!allPromptsDone) {
+      toast({
+        variant: "destructive",
+        title: "Discussion Required",
+        description: "Please discuss all points in the Think Aloud Protocol before finishing the task.",
+      });
+      return;
+    }
     updateState({ stage: 'finished', isComplete: true });
     logEvent('final_submission', { success: true });
   };
@@ -229,7 +241,11 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
             <Play className="w-5 h-5 fill-current" /> TEST CIRCUIT
           </Button>
           {testResult?.success && (
-            <Button size="lg" onClick={handleFinalSubmit} className="bg-green-600 hover:bg-green-700 font-bold shadow-xl gap-2 h-14 px-6 text-lg animate-bounce">
+            <Button 
+              size="lg" 
+              onClick={handleFinalSubmit} 
+              className={`bg-green-600 hover:bg-green-700 font-bold shadow-xl gap-2 h-14 px-6 text-lg ${allPromptsDone ? 'animate-bounce' : 'opacity-50'}`}
+            >
               <CheckCircle2 className="w-5 h-5" /> FINISH TASK
             </Button>
           )}
