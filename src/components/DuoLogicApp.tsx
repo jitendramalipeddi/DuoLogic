@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -18,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { ChevronLeft, ChevronRight, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 
-export default function DuoLogicApp() {
+export default function LogicLabApp() {
   const { 
     state, 
     updateState, 
@@ -37,7 +36,6 @@ export default function DuoLogicApp() {
       if (!state.problem) {
         try {
           const problem = await generateInitialLogicProblem();
-          // Keep stage as 'onboarding' (initial state) so users see the walkthrough first
           updateState({ problem });
           logEvent('problem_initialized', { description: problem.description });
         } catch (e: any) {
@@ -60,7 +58,7 @@ export default function DuoLogicApp() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.logs, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `duologic_session_${new Date().getTime()}.json`);
+    downloadAnchorNode.setAttribute("download", `logiclab_session_${new Date().getTime()}.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -122,8 +120,8 @@ export default function DuoLogicApp() {
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 z-50 shadow-sm shrink-0">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-black">DL</div>
-            <h1 className="text-2xl font-black text-primary tracking-tighter">DuoLogic</h1>
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-black">LL</div>
+            <h1 className="text-2xl font-black text-primary tracking-tighter">LogicLab</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button 

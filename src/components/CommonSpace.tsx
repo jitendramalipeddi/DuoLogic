@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -41,7 +40,7 @@ export default function CommonSpace({ state, updateState, markPromptDone, logEve
         {state.stage === 'onboarding' && (
           <div className="flex flex-col items-center py-4 px-8 max-w-3xl mx-auto space-y-8 h-full overflow-y-auto">
             <div className="text-center space-y-2">
-              <h3 className="text-5xl font-black text-slate-900 tracking-tighter uppercase">Welcome to DuoLogic!</h3>
+              <h3 className="text-5xl font-black text-slate-900 tracking-tighter uppercase">Welcome to LogicLab!</h3>
               <p className="text-xl font-bold text-muted-foreground italic">"Here are the steps we will take in this intervention..."</p>
             </div>
 

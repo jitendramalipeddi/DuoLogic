@@ -2,7 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'DuoLogic - Collaborative Digital Logic Learning',
+  title: 'LogicLab - Collaborative Digital Logic Learning',
   description: 'A multi-touch collaborative digital logic learning platform.',
 };
 
