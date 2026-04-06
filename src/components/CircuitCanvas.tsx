@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
 import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
+import { useToast } from "@/hooks/use-toast";
 
 interface CircuitCanvasProps {
   state: GameState;
@@ -17,6 +18,7 @@ const GATE_WIDTH = 100;
 const GATE_HEIGHT = 60;
 
 export default function CircuitCanvas({ state, updateState, logEvent }: CircuitCanvasProps) {
+  const { toast } = useToast();
   // Multi-touch tracking
   const [activeDrags, setActiveDrags] = useState<Record<number, string>>({}); // pointerId -> compId
   const [activeWires, setActiveWires] = useState<Record<number, { id: string; pin: number; type: 'in' | 'out' }>>({}); // pointerId -> wireStart
@@ -173,7 +175,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       toast({
         variant: "destructive",
         title: "Discussion Required",
-        description: "Please discuss all points in the Think Aloud Protocol before finishing the task.",
+        description: "Please discuss all shared points with your peer before finishing the task.",
       });
       return;
     }

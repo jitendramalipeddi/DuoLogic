@@ -48,7 +48,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       toast({
         variant: "destructive",
         title: "Discussion Required",
-        description: "Please discuss all points in the Think Aloud Protocol before proceeding.",
+        description: "Please discuss all points with your peer before proceeding.",
       });
       return;
     }
@@ -79,7 +79,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
   const validateTruthTable = () => {
     if (!allPromptsDone) {
-      setValidationError("Please discuss and mark all 'Think Aloud' points as 'Done' in the Common Space.");
+      setValidationError("Please discuss and mark all shared points as 'Done' in the Common Space.");
       return;
     }
     if (!state.problem) return;
@@ -118,7 +118,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
   const validateKMapGroupings = async () => {
     if (!allPromptsDone) {
-      setValidationError("Finish the Think Aloud discussion points first!");
+      setValidationError("Finish talking through your strategy with your peer first!");
       return;
     }
     if (!state.problem) return;
@@ -163,7 +163,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
   const handleSubmitExpression = async () => {
     if (!allPromptsDone) {
-      setValidationError("The system is waiting for you to complete your collaborative discussion.");
+      setValidationError("The system is waiting for you to complete your shared discussion points.");
       return;
     }
     if (!state.problem) return;
@@ -238,7 +238,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         {!allPromptsDone && (
           <div className="flex items-center gap-1 text-[10px] font-black text-amber-600 animate-bounce">
             <MessageSquareQuote className="w-3 h-3" />
-            DISCUSS POINTS TO UNLOCK
+            TALK TO YOUR PEER TO UNLOCK
           </div>
         )}
       </div>
@@ -443,9 +443,8 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                     className={`h-28 flex flex-col gap-2 border-4 rounded-2xl hover:border-primary transition-all shadow-md group ${isUser1 ? 'hover:bg-red-50 hover:border-red-300' : 'hover:bg-blue-50 hover:border-blue-300'}`}
                     onClick={() => addGate(type as any)}
                   >
-                    <Plus className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">{type}</span>
-                    <div className={`w-10 h-5 rounded-md ${type === 'AND' ? 'gate-and' : type === 'OR' ? 'gate-or' : 'gate-not'} shadow-sm`} />
+                    <span className="font-black text-lg">{type}</span>
+                    <Plus className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
                   </Button>
                 ))}
              </div>

@@ -45,7 +45,7 @@ export default function ThinkAloudPrompts({ stage, completedIndices, onMarkDone 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className={`text-[10px] font-black uppercase tracking-widest ${allDone ? 'text-green-600' : 'text-primary/60'}`}>
-                  Collaborative Think Aloud Protocol
+                  Please talk to your peer about what you are thinking
                 </span>
                 {!allDone && <Zap className="w-3 h-3 text-amber-500 fill-current animate-pulse" />}
               </div>
