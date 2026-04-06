@@ -1,6 +1,12 @@
+
 import { GameStage } from '@/hooks/useGameState';
 
 export const STAGE_PROMPTS: Record<GameStage, string[]> = {
+  onboarding: [
+    "Welcome! Take a moment to read through the 7 steps of our mission together.",
+    "Discuss with your peer: Which of these steps do you think will be the most challenging?",
+    "Confirm that you've both understood the collaborative layout before we start."
+  ],
   intro: [
     "Discuss with your partner: What is the main goal of this logic problem?",
     "Verbalize your initial strategy for tackling the truth table.",

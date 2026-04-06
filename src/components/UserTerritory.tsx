@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
-import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter, MonitorPlay, MessageSquareQuote } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Plus, Info, ShieldCheck, HelpCircle, Layers, MousePointer2, Loader2, ArrowRight, X, ListFilter, MonitorPlay, MessageSquareQuote, Rocket } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -41,6 +42,23 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   const currentStagePrompts = STAGE_PROMPTS[state.stage] || [];
   const completedPromptsCount = (state.completedPrompts[state.stage] || []).length;
   const allPromptsDone = completedPromptsCount === currentStagePrompts.length;
+
+  const handleStartSession = () => {
+    if (!allPromptsDone) {
+      toast({
+        variant: "destructive",
+        title: "Discussion Required",
+        description: "Please discuss the steps with your peer before starting.",
+      });
+      return;
+    }
+    const newOnboarding = { ...state.onboardingAccepted, [userId]: true };
+    updateState({ onboardingAccepted: newOnboarding });
+    logEvent('onboarding_accepted', { userId });
+    if (newOnboarding[1] && newOnboarding[2]) {
+      updateState({ stage: 'intro' });
+    }
+  };
 
   const handleAccept = () => {
     if (!allPromptsDone) {
@@ -247,13 +265,44 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       </div>
 
       <div className="flex-1 overflow-auto">
+        {state.stage === 'onboarding' && (
+          <div className="flex flex-col items-center justify-center h-full space-y-6">
+            {!state.onboardingAccepted[userId] ? (
+              <>
+                <div className="text-center space-y-2">
+                  <p className="font-bold text-lg">Ready to start?</p>
+                  <p className="text-muted-foreground text-xs px-12">Click below when you have finished discussing the steps with your partner.</p>
+                </div>
+                <Button 
+                  size="lg" 
+                  disabled={!allPromptsDone}
+                  className={`w-48 h-20 text-xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} gap-2`}
+                  onClick={handleStartSession}
+                >
+                  <Rocket className="w-6 h-6" /> I'M READY
+                </Button>
+              </>
+            ) : (
+              <div className="text-center space-y-4 animate-pulse">
+                <div className={`w-16 h-16 rounded-full ${accentColor} opacity-20 mx-auto flex items-center justify-center`}>
+                  <Loader2 className={`w-8 h-8 ${textColor} animate-spin`} />
+                </div>
+                <div>
+                  <p className="font-black text-xl tracking-tight uppercase">Status: Prepared</p>
+                  <p className="text-muted-foreground font-bold">Waiting for your partner...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {state.stage === 'intro' && (
           <div className="flex flex-col items-center justify-center h-full space-y-6">
             {!state.accepted[userId] ? (
               <>
                 <div className="text-center space-y-2">
-                  <p className="font-bold text-lg">Ready to begin?</p>
-                  <p className="text-muted-foreground text-sm px-8">Confirm your participation to start the logic design challenge.</p>
+                  <p className="font-bold text-lg">Review the Logic Goal</p>
+                  <p className="text-muted-foreground text-sm px-8">Confirm you've read the objective to begin the truth table phase.</p>
                 </div>
                 <Button 
                   size="lg" 
@@ -270,8 +319,8 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                   <Loader2 className={`w-8 h-8 ${textColor} animate-spin`} />
                 </div>
                 <div>
-                  <p className="font-black text-xl tracking-tight">RESPONSE RECORDED</p>
-                  <p className="text-muted-foreground font-bold">Waiting for your partner to join...</p>
+                  <p className="font-black text-xl tracking-tight uppercase">Objective Confirmed</p>
+                  <p className="text-muted-foreground font-bold text-sm">Waiting for partner...</p>
                 </div>
               </div>
             )}
@@ -331,13 +380,13 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         {state.stage === 'kmap' && (
           <div className="flex flex-col items-center justify-center h-full space-y-6 px-4">
             <div className="text-center space-y-2">
-              <h4 className={`text-lg font-black tracking-tight ${textColor}`}>
+              <h4 className={`text-lg font-black tracking-tight ${textColor} uppercase`}>
                 K-MAP {state.kmapSubStage === 'fill' ? 'FILLING PHASE' : 'GROUPING PHASE'}
               </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <p className="text-xs text-muted-foreground font-bold leading-relaxed italic">
                 {state.kmapSubStage === 'fill' 
-                  ? "Collaborate with your partner on the central board to fill in the values from your truth table."
-                  : "Work together to select optimal blocks of 1s on the central board."}
+                  ? "Collaborate on the central board to map truth table values to the grid."
+                  : "Identify the optimal pairs or blocks of 1s together."}
               </p>
             </div>
 
