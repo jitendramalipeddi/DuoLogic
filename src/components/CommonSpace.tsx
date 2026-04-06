@@ -6,6 +6,7 @@ import TruthTableGrid from './TruthTableGrid';
 import KMapGrid from './KMapGrid';
 import CircuitCanvas from './CircuitCanvas';
 import DiscussionView from './DiscussionView';
+import ThinkAloudPrompts from './ThinkAloudPrompts';
 
 interface CommonSpaceProps {
   state: GameState;
@@ -17,10 +18,16 @@ export default function CommonSpace({ state, updateState, logEvent }: CommonSpac
   return (
     <div className="h-full w-full bg-white rounded-xl shadow-2xl border border-border p-6 flex flex-col overflow-hidden">
       <div className="mb-4 flex items-center justify-between border-b pb-2">
-        <h2 className="text-2xl font-headline font-bold text-primary">COMMON SPACE</h2>
+        <h2 className="text-2xl font-headline font-bold text-primary flex items-center gap-2">
+          COMMON SPACE
+        </h2>
         <div className="px-4 py-1 bg-accent/10 rounded-full text-accent font-bold uppercase tracking-widest text-sm">
           Stage: {state.stage.replace('_', ' ')}
         </div>
+      </div>
+
+      <div className="mb-4">
+        <ThinkAloudPrompts stage={state.stage} />
       </div>
 
       <div className="flex-1 overflow-auto">
