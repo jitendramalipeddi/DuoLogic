@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
 import { GameState, KMapGrouping } from '@/hooks/useGameState';
-import { X, MousePointer2 } from 'lucide-react';
+import { X, MousePointer2, Info, Layout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface KMapGridProps {
@@ -146,31 +147,31 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
 
   return (
     <div 
-      className="flex flex-col items-center space-y-4 select-none touch-none" 
+      className="flex flex-col items-center space-y-6 select-none touch-none" 
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="flex space-x-8 mb-2">
+      <div className="flex space-x-8">
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-red-400 opacity-50 border-2 border-red-500 rounded"></div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">P1 Groups</span>
+          <div className="w-5 h-5 bg-red-400 opacity-50 border-2 border-red-500 rounded"></div>
+          <span className="text-xs font-black uppercase tracking-widest text-slate-500">P1 Groups</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-blue-400 opacity-50 border-2 border-blue-500 rounded"></div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">P2 Groups</span>
+          <div className="w-5 h-5 bg-blue-400 opacity-50 border-2 border-blue-500 rounded"></div>
+          <span className="text-xs font-black uppercase tracking-widest text-slate-500">P2 Groups</span>
         </div>
       </div>
       
-      <div className="relative p-10 bg-slate-100/50 border-2 border-slate-200 rounded-2xl shadow-inner">
-        <div className="absolute left-0 top-10 bottom-10 flex flex-col justify-around text-[10px] font-black font-mono -translate-x-full pr-4 text-slate-400">
+      <div className="relative p-12 bg-slate-100/50 border-4 border-slate-200 rounded-3xl shadow-inner">
+        <div className="absolute left-0 top-12 bottom-12 flex flex-col justify-around text-xs font-black font-mono -translate-x-full pr-6 text-slate-400">
           <span>AB=00</span><span>01</span><span>11</span><span>10</span>
         </div>
-        <div className="absolute top-0 left-10 right-10 flex justify-around text-[10px] font-black font-mono -translate-y-full pb-4 text-slate-400">
+        <div className="absolute top-0 left-12 right-12 flex justify-around text-xs font-black font-mono -translate-y-full pb-6 text-slate-400">
           <span>CD=00</span><span>01</span><span>11</span><span>10</span>
         </div>
 
         <div 
           ref={gridRef}
-          className="grid grid-cols-4 gap-0 border-4 border-slate-400 bg-white shadow-2xl overflow-hidden rounded-sm touch-none"
+          className="grid grid-cols-4 gap-0 border-[6px] border-slate-400 bg-white shadow-2xl overflow-hidden rounded-lg touch-none"
           onPointerMove={handlePointerMove}
         >
           {Array.from({ length: 4 }).map((_, r) => (
@@ -180,7 +181,7 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
               return (
                 <div 
                   key={`${r}-${c}`}
-                  className={`w-16 h-16 border border-slate-200 flex items-center justify-center text-xl font-black font-mono transition-colors relative z-10 ${
+                  className={`w-20 h-20 border border-slate-200 flex items-center justify-center text-2xl font-black font-mono transition-colors relative z-10 ${
                     state.kmapSubStage === 'fill' ? 'hover:bg-amber-50 cursor-pointer' : 'cursor-crosshair'
                   }`}
                   onPointerDown={(e) => state.kmapSubStage === 'fill' ? handleCellClick(r, c) : handlePointerDown(e, r, c)}
@@ -193,7 +194,7 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
           ))}
         </div>
 
-        <div className="absolute inset-10 pointer-events-none">
+        <div className="absolute inset-12 pointer-events-none">
           {renderGhostSelection()}
           {state.userGroupings.map((g) => {
             const minRow = Math.min(...g.cells.map(c => c.row));
@@ -219,9 +220,9 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
                 {!readOnly && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); removeGrouping(g.id); }}
-                    className="w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="w-6 h-6 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -231,19 +232,26 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
       </div>
 
       {state.kmapSubStage === 'group' && !readOnly && (
-        <div className="flex gap-4 mt-2">
-           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-xs font-bold">
-              <MousePointer2 className="w-4 h-4" />
-              DRAG TO SELECT BLOCKS
+        <div className="flex flex-col items-center gap-4 mt-2">
+           <div className="flex items-center gap-3 px-6 py-3 bg-amber-100 border-2 border-amber-300 rounded-2xl text-amber-800 text-sm font-bold animate-pulse">
+              <MousePointer2 className="w-5 h-5" />
+              DRAG OVER CELLS TO GROUP (POWERS OF 2 ONLY: 1, 2, 4, 8)
            </div>
-           <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => updateState({ userGroupings: [] })}
-            className="text-red-600 font-bold hover:bg-red-50"
-           >
-             CLEAR ALL GROUPS
-           </Button>
+           
+           <div className="flex gap-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl border-2 border-slate-200">
+              <Layout className="w-4 h-4 text-slate-500" />
+              <span className="text-[11px] font-bold text-slate-600 uppercase">Tip: Groups can wrap around edges</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => updateState({ userGroupings: [] })}
+              className="text-red-600 font-bold hover:bg-red-50"
+            >
+              CLEAR ALL GROUPS
+            </Button>
+           </div>
         </div>
       )}
     </div>

@@ -65,7 +65,9 @@ export interface GameState {
   userKMapValues: number[]; // 16 entries, 0 or 1. -1 if not set.
   kmapSubStage: KMapSubStage;
   userGroupings: KMapGrouping[];
-  expressions: { [key: number]: string };
+  sharedExpression: string;
+  expressionConfirmed: { [key: number]: boolean };
+  expressions: { [key: number]: string }; // Kept for backward compatibility/AI comparison
   discussionPrompts: string[];
   circuitComponents: CircuitComponent[];
   wires: WireConnection[];
@@ -86,6 +88,8 @@ const initialState: GameState = {
   userKMapValues: new Array(16).fill(-1),
   kmapSubStage: 'fill',
   userGroupings: [],
+  sharedExpression: '',
+  expressionConfirmed: { 1: false, 2: false },
   expressions: { 1: '', 2: '' },
   discussionPrompts: [],
   circuitComponents: [

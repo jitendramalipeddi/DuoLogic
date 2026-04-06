@@ -4,7 +4,6 @@
 import React, { useState, useMemo } from 'react';
 import { GameState } from '@/hooks/useGameState';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
 import { adviseKMapGroupingOptimization } from '@/ai/flows/advise-kmap-grouping-optimization';
 import { validateUserBooleanExpression } from '@/ai/flows/validate-user-boolean-expression-flow';
@@ -28,7 +27,6 @@ interface UserTerritoryProps {
 }
 
 export default function UserTerritory({ userId, state, updateState, logEvent, className }: UserTerritoryProps) {
-  const [expressionInput, setExpressionInput] = useState(state.expressions[userId] || '');
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showSimInstructions, setShowSimInstructions] = useState(false);
@@ -96,7 +94,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
   const validateTruthTable = () => {
     if (!allPromptsDone) {
-      setValidationError("Please discuss and mark all shared points as 'Done' in the Common Space.");
+      setValidationError("Please discuss and mark all shared points as 'Discussed' in the Common Space.");
       return;
     }
     if (!state.problem) return;
@@ -168,7 +166,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
       if (result.isOptimal) {
         setValidationError(null);
-        updateState({ stage: 'equation' });
+        updateState({ stage: 'equation', expressionConfirmed: { 1: false, 2: false } });
         logEvent('kmap_validation_success', {});
         toast({ title: "K-Map Optimized", description: "Your groupings are optimal Prime Implicants." });
       } else {
@@ -182,43 +180,49 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     }
   };
 
-  const handleSubmitExpression = async () => {
+  const handleConfirmExpression = async () => {
     if (!allPromptsDone) {
       setValidationError("The system is waiting for you to complete your shared discussion points.");
       return;
     }
-    if (!state.problem) return;
-    setValidating(true);
-    setValidationError(null);
-    logEvent('expression_submit_attempt', { userId, expression: expressionInput });
-    
-    try {
-      const result = await validateUserBooleanExpression({
-        userExpression: expressionInput,
-        idealExpression: state.problem.hints.equation.level3,
-        variables: state.problem.variables
-      });
+    if (!state.sharedExpression) {
+      setValidationError("Please enter the Boolean expression in the shared Laboratory space above first.");
+      return;
+    }
 
-      if (result.isCorrect) {
-        const newExpressions = { ...state.expressions, [userId]: expressionInput };
-        updateState({ expressions: newExpressions });
-        
-        if (newExpressions[1] && newExpressions[2]) {
+    const newConfirmed = { ...state.expressionConfirmed, [userId]: true };
+    updateState({ expressionConfirmed: newConfirmed });
+    logEvent('expression_agreed', { userId, expression: state.sharedExpression });
+
+    if (newConfirmed[1] && newConfirmed[2]) {
+      setValidating(true);
+      setValidationError(null);
+      
+      try {
+        const result = await validateUserBooleanExpression({
+          userExpression: state.sharedExpression,
+          idealExpression: state.problem!.hints.equation.level3,
+          variables: state.problem!.variables
+        });
+
+        if (result.isCorrect) {
           setShowSimInstructions(true);
-          logEvent('expressions_matched', { expression: expressionInput });
+          logEvent('shared_expression_validated', { expression: state.sharedExpression });
+        } else {
+          setValidationError(result.feedback || "This shared equation does not logically match the truth table. Discuss changes with your partner.");
+          updateState({ expressionConfirmed: { 1: false, 2: false } });
+          logEvent('shared_expression_validation_fail', { feedback: result.feedback });
         }
-      } else {
-        setValidationError(result.feedback || "The equation does not logically match the truth table.");
-        logEvent('expression_validation_fail', { feedback: result.feedback });
+      } catch (e: any) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "The logic engine is currently busy. Please try again.",
+        });
+        updateState({ expressionConfirmed: { 1: false, 2: false } });
+      } finally {
+        setValidating(false);
       }
-    } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "The logic engine is currently busy. Please try again.",
-      });
-    } finally {
-      setValidating(false);
     }
   };
 
@@ -233,7 +237,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       id: `gate-${Math.random().toString(36).substr(2, 9)}`,
       type,
       userId,
-      x: 400 + Math.random() * 200, 
+      x: 500 + Math.random() * 200, 
       y: 100 + Math.random() * 200
     };
     updateState({ circuitComponents: [...state.circuitComponents, newComp] });
@@ -259,7 +263,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         {!allPromptsDone && (
           <div className="flex items-center gap-1 text-[10px] font-black text-amber-600 animate-bounce">
             <MessageSquareQuote className="w-3 h-3" />
-            TALK TO YOUR PEER TO UNLOCK
+            DISCUSS TO UNLOCK
           </div>
         )}
       </div>
@@ -385,8 +389,8 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
               </h4>
               <p className="text-xs text-muted-foreground font-bold leading-relaxed italic">
                 {state.kmapSubStage === 'fill' 
-                  ? "Collaborate on the central board to map truth table values to the grid."
-                  : "Identify the optimal pairs or blocks of 1s together."}
+                  ? "Collaborate on the shared board to map truth table values."
+                  : "Identify optimal pairs or blocks of 1s together."}
               </p>
             </div>
 
@@ -437,41 +441,41 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         )}
 
         {(state.stage === 'equation' || state.stage === 'discussion') && (
-          <div className="space-y-4 p-6 bg-white rounded-2xl border-4 border-slate-50 shadow-inner">
+          <div className="space-y-4 p-6 bg-white rounded-2xl border-4 border-slate-50 shadow-inner h-full flex flex-col justify-center">
              <div className="flex items-center gap-2 mb-2">
-               <HelpCircle className={`w-5 h-5 ${textColor}`} />
-               <h4 className="font-black text-sm uppercase tracking-tighter">Final Equation</h4>
+               <ShieldCheck className={`w-6 h-6 ${textColor}`} />
+               <h4 className="font-black text-sm uppercase tracking-tighter">Agreement Required</h4>
              </div>
-             <Input 
-                value={expressionInput}
-                onChange={(e) => setExpressionInput(e.target.value)}
-                placeholder="e.g. ABC + ABD..."
-                className="font-mono text-2xl h-16 border-2 border-slate-100 focus-visible:ring-offset-2 rounded-xl text-center"
-                disabled={state.expressions[userId] !== ''}
-             />
+             
+             <p className="text-xs font-bold text-muted-foreground leading-relaxed italic mb-4">
+               Discuss the final simplified expression with your partner. Once you both agree on the equation entered in the Laboratory, click confirm.
+             </p>
+
              {validationError && (
-              <Alert variant="destructive" className="bg-red-50 border-red-200">
+              <Alert variant="destructive" className="bg-red-50 border-red-200 mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-xs">{validationError}</AlertDescription>
               </Alert>
             )}
              
-             {state.expressions[1] !== '' && state.expressions[2] !== '' ? (
-               <Button 
-                  onClick={() => setShowSimInstructions(true)}
-                  disabled={!allPromptsDone}
-                  className={`w-full h-16 text-xl font-black rounded-xl shadow-xl bg-primary gap-2 ${allPromptsDone ? 'animate-pulse' : ''}`}
-               >
-                  PROCEED TO SIMULATOR <ArrowRight className="w-6 h-6" />
-               </Button>
-             ) : (
-               <Button 
-                  onClick={handleSubmitExpression} 
-                  disabled={validating || state.expressions[userId] !== '' || !allPromptsDone}
-                  className={`w-full h-16 text-xl font-black rounded-xl shadow-xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2`}
-               >
-                  {state.expressions[userId] ? 'AWAITING PEER...' : validating ? <><Loader2 className="w-5 h-5 animate-spin" /> ANALYZING...</> : 'SUBMIT SOLUTION'}
-               </Button>
+             <Button 
+                onClick={handleConfirmExpression} 
+                disabled={validating || state.expressionConfirmed[userId] || !allPromptsDone}
+                className={`w-full h-20 text-2xl font-black rounded-3xl shadow-2xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2 transition-all active:scale-95`}
+             >
+                {state.expressionConfirmed[userId] ? (
+                  <><CheckCircle2 className="w-8 h-8" /> AGREED</>
+                ) : validating ? (
+                  <><Loader2 className="w-8 h-8 animate-spin" /> ANALYZING...</>
+                ) : (
+                  'AGREE WITH EQUATION'
+                )}
+             </Button>
+             
+             {state.expressionConfirmed[userId] && !state.expressionConfirmed[isUser1 ? 2 : 1] && (
+               <p className="mt-4 text-[10px] font-black uppercase text-center text-slate-400 animate-pulse">
+                 Awaiting Partner Confirmation...
+               </p>
              )}
           </div>
         )}
@@ -495,7 +499,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              <div className="p-4 bg-muted/20 rounded-2xl border-2 border-dashed border-slate-200 flex gap-3 items-start">
                <Info className="w-5 h-5 text-slate-400 shrink-0" />
                <p className="text-[11px] font-bold text-slate-500 leading-tight">
-                 Add gates and build the circuit in the common space to match your Boolean expression.
+                 Add gates and build the circuit in the common space to match your Boolean expression. Double-tap a gate or wire to remove it.
                </p>
              </div>
           </div>
@@ -503,7 +507,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
       </div>
 
       <Dialog open={showSimInstructions} onOpenChange={setShowSimInstructions}>
-        <DialogContent className="max-w-2xl rounded-3xl p-8 border-4 border-primary">
+        <DialogContent className="max-w-2xl rounded-3xl p-8 border-4 border-primary shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-3xl font-black uppercase tracking-tight text-primary flex items-center gap-3">
               <MonitorPlay className="w-8 h-8" />
@@ -514,19 +518,19 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             <div className="space-y-4 text-slate-700">
               <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">1</div>
-                <p className="font-bold">To add the component, please click on the component button available in each users space.</p>
+                <p className="font-bold">To add components, click the AND, OR, or NOT buttons in your personal space.</p>
               </div>
               <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">2</div>
-                <p className="font-bold">To remove the wires connected, double tap on the connected wire.</p>
+                <p className="font-bold text-red-600">To remove a component or wire, double-tap it directly on the canvas.</p>
               </div>
               <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">3</div>
-                <p className="font-bold">Drag the component on the circuit canvas to move it.</p>
+                <p className="font-bold">Drag components anywhere on the canvas to organize your circuit.</p>
               </div>
               <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">4</div>
-                <p className="font-bold">Click on the pin of the component to connect with a wire.</p>
+                <p className="font-bold">Touch and drag from a black pin to create a wire connection.</p>
               </div>
             </div>
           </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -36,50 +37,50 @@ export default function ThinkAloudPrompts({ stage, completedIndices, onMarkDone 
 
   return (
     <Card className={`transition-all duration-500 shadow-md ${allDone ? 'bg-green-50 border-green-200' : 'bg-primary/5 border-primary/20'}`}>
-      <CardContent className="p-4 flex flex-col gap-3">
-        <div className="flex items-center gap-4">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${allDone ? 'bg-green-100' : 'bg-primary/10'}`}>
-            <MessageSquareQuote className={`w-5 h-5 ${allDone ? 'text-green-600' : 'text-primary'}`} />
+      <CardContent className="p-6 flex flex-col gap-4">
+        <div className="flex items-center gap-6">
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${allDone ? 'bg-green-100' : 'bg-primary/10'}`}>
+            <MessageSquareQuote className={`w-7 h-7 ${allDone ? 'text-green-600' : 'text-primary'}`} />
           </div>
-          <div className="flex-1 space-y-1">
+          <div className="flex-1 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-black uppercase tracking-widest ${allDone ? 'text-green-600' : 'text-primary/60'}`}>
+                <span className={`text-xs font-black uppercase tracking-widest ${allDone ? 'text-green-600' : 'text-primary/60'}`}>
                   Please talk to your peer about what you are thinking
                 </span>
-                {!allDone && <Zap className="w-3 h-3 text-amber-500 fill-current animate-pulse" />}
+                {!allDone && <Zap className="w-4 h-4 text-amber-500 fill-current animate-pulse" />}
               </div>
               <div className="text-[10px] font-bold text-slate-400 tabular-nums">
                 {completedIndices.length}/{prompts.length} DISCUSSION POINTS COMPLETED
               </div>
             </div>
-            <p className={`text-sm font-bold italic leading-relaxed ${isCurrentDone ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+            <p className={`text-lg md:text-xl font-bold italic leading-relaxed ${isCurrentDone ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
               "{prompts[currentPromptIndex]}"
             </p>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-center gap-3 pt-2">
           {!isCurrentDone ? (
             <Button 
-              size="sm" 
+              size="lg" 
               onClick={() => onMarkDone(currentPromptIndex)}
-              className="bg-primary hover:bg-primary/90 text-[10px] font-black h-8 px-4 rounded-lg gap-2"
+              className="bg-primary hover:bg-primary/90 text-xs font-black h-12 px-8 rounded-xl gap-2 shadow-lg"
             >
-              <CheckCircle2 className="w-4 h-4" /> MARK AS DISCUSSED
+              <CheckCircle2 className="w-5 h-5" /> MARK AS DISCUSSED
             </Button>
           ) : !allDone ? (
             <Button 
-              size="sm" 
+              size="lg" 
               variant="outline"
               onClick={handleNext}
-              className="text-[10px] font-black h-8 px-4 rounded-lg border-2"
+              className="text-xs font-black h-12 px-8 rounded-xl border-2 shadow-sm"
             >
               NEXT PROMPT
             </Button>
           ) : (
-            <div className="flex items-center gap-2 text-green-700 font-black text-[10px] uppercase tracking-widest">
-              <CheckCircle2 className="w-4 h-4" /> All Discussions Complete for this Stage
+            <div className="flex items-center gap-2 text-green-700 font-black text-xs uppercase tracking-widest bg-green-100/50 px-6 py-3 rounded-xl border border-green-200">
+              <CheckCircle2 className="w-5 h-5" /> All Discussions Complete for this Stage
             </div>
           )}
         </div>
