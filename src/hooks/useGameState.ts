@@ -56,6 +56,7 @@ export interface LogEntry {
 export interface GameState {
   stage: GameStage;
   stageHistory: GameStage[];
+  stageFuture: GameStage[];
   problem: LogicProblem | null;
   accepted: { [key: number]: boolean };
   userTruthTable: number[]; // 16 entries, 0 or 1. -1 if not set.
@@ -75,6 +76,7 @@ export interface GameState {
 const initialState: GameState = {
   stage: 'intro',
   stageHistory: [],
+  stageFuture: [],
   problem: null,
   accepted: { 1: false, 2: false },
   userTruthTable: new Array(16).fill(-1),
@@ -120,6 +122,8 @@ export function useGameState() {
       const newState = { ...prev, ...updates };
       if (updates.stage && updates.stage !== prev.stage) {
         newState.stageHistory = [...prev.stageHistory, prev.stage];
+        // If it's a new progression (not back/forward), clear future
+        newState.stageFuture = [];
       }
       return newState;
     });
@@ -144,9 +148,28 @@ export function useGameState() {
       if (prev.stageHistory.length === 0) return prev;
       const newHistory = [...prev.stageHistory];
       const lastStage = newHistory.pop()!;
-      return { ...prev, stage: lastStage, stageHistory: newHistory };
+      return { 
+        ...prev, 
+        stage: lastStage, 
+        stageHistory: newHistory,
+        stageFuture: [prev.stage, ...prev.stageFuture]
+      };
     });
   }, []);
 
-  return { state, updateState, goBack, logEvent, markPromptDone };
+  const goForward = useCallback(() => {
+    setState(prev => {
+      if (prev.stageFuture.length === 0) return prev;
+      const newFuture = [...prev.stageFuture];
+      const nextStage = newFuture.shift()!;
+      return {
+        ...prev,
+        stage: nextStage,
+        stageHistory: [...prev.stageHistory, prev.stage],
+        stageFuture: newFuture
+      };
+    });
+  }, []);
+
+  return { state, updateState, goBack, goForward, logEvent, markPromptDone };
 }

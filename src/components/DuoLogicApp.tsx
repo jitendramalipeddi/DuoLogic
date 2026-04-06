@@ -15,13 +15,14 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { ChevronLeft, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function DuoLogicApp() {
   const { 
     state, 
     updateState, 
     goBack,
+    goForward,
     logEvent,
     markPromptDone
   } = useGameState();
@@ -122,16 +123,28 @@ export default function DuoLogicApp() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-black">DL</div>
             <h1 className="text-2xl font-black text-primary tracking-tighter">DuoLogic</h1>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={goBack} 
-            disabled={state.stage === 'intro'}
-            className="text-slate-400 font-bold hover:text-primary transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            BACK
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={goBack} 
+              disabled={state.stage === 'intro'}
+              className="text-slate-400 font-bold hover:text-primary transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 mr-1" />
+              BACK
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={goForward} 
+              disabled={state.stageFuture.length === 0}
+              className="text-slate-400 font-bold hover:text-primary transition-colors"
+            >
+              FORWARD
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -170,7 +183,6 @@ export default function DuoLogicApp() {
       </header>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* INCREASED SIZE FOR COMMON SPACE (65%) */}
         <div className="h-[65%] w-full p-4 overflow-hidden bg-slate-100/50 flex flex-col">
           <div className="flex-1 overflow-hidden">
             <CommonSpace 
@@ -181,7 +193,6 @@ export default function DuoLogicApp() {
             />
           </div>
           
-          {/* HINT SYSTEM: Center Positioned */}
           <div className="mt-4 flex justify-center">
              <div className="w-full max-w-3xl px-4">
                <HintSystem state={state} updateState={updateState} logEvent={logEvent} />
@@ -189,7 +200,6 @@ export default function DuoLogicApp() {
           </div>
         </div>
 
-        {/* USER TERRITORIES (35%) */}
         <div className="h-[35%] w-full flex border-t-2 border-slate-200 bg-white">
           <UserTerritory 
             userId={1} 
