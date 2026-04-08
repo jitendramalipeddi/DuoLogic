@@ -67,14 +67,15 @@ export interface GameState {
   userGroupings: KMapGrouping[];
   sharedExpression: string;
   expressionConfirmed: { [key: number]: boolean };
-  expressions: { [key: number]: string }; // Kept for backward compatibility/AI comparison
+  expressions: { [key: number]: string }; 
   discussionPrompts: string[];
   circuitComponents: CircuitComponent[];
   wires: WireConnection[];
   logs: LogEntry[];
   isComplete: boolean;
   hintLevels: { [key in GameStage]?: number };
-  completedPrompts: { [key in GameStage]?: number[] };
+  completedPrompts: { [key: string]: number[] };
+  activityCompleted: { [key: string]: boolean };
 }
 
 const initialState: GameState = {
@@ -104,6 +105,7 @@ const initialState: GameState = {
   isComplete: false,
   hintLevels: {},
   completedPrompts: {},
+  activityCompleted: {},
 };
 
 export function useGameState() {
@@ -129,22 +131,21 @@ export function useGameState() {
       const newState = { ...prev, ...updates };
       if (updates.stage && updates.stage !== prev.stage) {
         newState.stageHistory = [...prev.stageHistory, prev.stage];
-        // If it's a new progression (not back/forward), clear future
         newState.stageFuture = [];
       }
       return newState;
     });
   }, []);
 
-  const markPromptDone = useCallback((stage: GameStage, index: number) => {
+  const markPromptDone = useCallback((activityId: string, index: number) => {
     setState(prev => {
-      const current = prev.completedPrompts[stage] || [];
+      const current = prev.completedPrompts[activityId] || [];
       if (current.includes(index)) return prev;
       return {
         ...prev,
         completedPrompts: {
           ...prev.completedPrompts,
-          [stage]: [...current, index]
+          [activityId]: [...current, index]
         }
       };
     });

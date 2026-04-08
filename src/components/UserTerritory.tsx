@@ -16,7 +16,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
 
 interface UserTerritoryProps {
   userId: number;
@@ -37,19 +36,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   const textColor = isUser1 ? 'text-red-600' : 'text-blue-600';
   const borderColor = isUser1 ? 'border-red-200' : 'border-blue-200';
   
-  const currentStagePrompts = STAGE_PROMPTS[state.stage] || [];
-  const completedPromptsCount = (state.completedPrompts[state.stage] || []).length;
-  const allPromptsDone = completedPromptsCount === currentStagePrompts.length;
-
   const handleStartSession = () => {
-    if (!allPromptsDone) {
-      toast({
-        variant: "destructive",
-        title: "Discussion Required",
-        description: "Please discuss the steps with your peer before starting.",
-      });
-      return;
-    }
     const newOnboarding = { ...state.onboardingAccepted, [userId]: true };
     updateState({ onboardingAccepted: newOnboarding });
     logEvent('onboarding_accepted', { userId });
@@ -59,19 +46,11 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   };
 
   const handleAccept = () => {
-    if (!allPromptsDone) {
-      toast({
-        variant: "destructive",
-        title: "Discussion Required",
-        description: "Please discuss all points with your peer before proceeding.",
-      });
-      return;
-    }
     const newAccepted = { ...state.accepted, [userId]: true };
     updateState({ accepted: newAccepted });
     logEvent('user_accepted', { userId });
     if (newAccepted[1] && newAccepted[2]) {
-      updateState({ stage: 'truth_table' });
+      updateState({ activityCompleted: { ...state.activityCompleted, intro: true } });
     }
   };
 
@@ -93,53 +72,39 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   };
 
   const validateTruthTable = () => {
-    if (!allPromptsDone) {
-      setValidationError("Please discuss and mark all shared points as 'Discussed' in the Common Space.");
-      return;
-    }
     if (!state.problem) return;
     const errors = state.userTruthTable.filter((val, idx) => val !== -1 && val !== state.problem!.targetTruthTable[idx]);
     
     if (errors.length > 0) {
-      setValidationError("Some truth table entries are incorrect. Please review the problem description and your logic.");
+      setValidationError("Some truth table entries are incorrect. Review the mission requirement.");
       logEvent('truth_table_validation_fail', { errorCount: errors.length });
     } else {
       setValidationError(null);
-      updateState({ stage: 'kmap', kmapSubStage: 'fill' });
+      updateState({ activityCompleted: { ...state.activityCompleted, truth_table: true } });
       logEvent('truth_table_validation_success', {});
-      toast({ title: "Truth Table Verified", description: "All entries match the target logic." });
     }
   };
 
   const validateKMapFilling = () => {
-    if (!allPromptsDone) {
-      setValidationError("Please complete your discussion before validating.");
-      return;
-    }
     const errors = state.userKMapValues.filter((val, idx) => val !== -1 && val !== state.userTruthTable[idx]);
     const anyIncomplete = state.userKMapValues.some(val => val === -1);
 
     if (anyIncomplete) {
-      setValidationError("Please fill all cells in the K-map grid.");
+      setValidationError("Fill all cells in the K-map grid first.");
       return;
     }
 
     if (errors.length > 0) {
-      setValidationError("Your K-map values don't match the truth table. Remember, K-maps use Grey Code (00, 01, 11, 10).");
+      setValidationError("K-map values don't match the truth table. Check the row indices.");
       logEvent('kmap_fill_validation_fail', { errorCount: errors.length });
     } else {
       setValidationError(null);
-      updateState({ kmapSubStage: 'group' });
+      updateState({ activityCompleted: { ...state.activityCompleted, kmap_fill: true } });
       logEvent('kmap_fill_validation_success', {});
-      toast({ title: "K-Map Populated", description: "Values correctly mapped. Now, work together to identify optimal groups of 1s." });
     }
   };
 
   const validateKMapGroupings = async () => {
-    if (!allPromptsDone) {
-      setValidationError("Finish talking through your strategy with your peer first!");
-      return;
-    }
     if (!state.problem) return;
     setValidating(true);
     setValidationError(null);
@@ -166,27 +131,22 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
 
       if (result.isOptimal) {
         setValidationError(null);
-        updateState({ stage: 'equation', expressionConfirmed: { 1: false, 2: false } });
+        updateState({ activityCompleted: { ...state.activityCompleted, kmap_group: true } });
         logEvent('kmap_validation_success', {});
-        toast({ title: "K-Map Optimized", description: "Your groupings are optimal Prime Implicants." });
       } else {
-        setValidationError(result.feedback || "Your K-map groupings are not optimal. Check for prime implicants or redundant groups.");
+        setValidationError(result.feedback || "Your groupings are not yet optimal.");
         logEvent('kmap_validation_fail', { feedback: result.feedback });
       }
     } catch (e) {
-      toast({ variant: "destructive", title: "Validation Error", description: "Could not verify K-map groupings. Please try again." });
+      toast({ variant: "destructive", title: "Validation Error", description: "System busy. Try again." });
     } finally {
       setValidating(false);
     }
   };
 
   const handleConfirmExpression = async () => {
-    if (!allPromptsDone) {
-      setValidationError("The system is waiting for you to complete your shared discussion points.");
-      return;
-    }
     if (!state.sharedExpression) {
-      setValidationError("Please enter the Boolean expression in the shared Laboratory space above first.");
+      setValidationError("Enter the shared expression in the Laboratory first.");
       return;
     }
 
@@ -206,19 +166,15 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         });
 
         if (result.isCorrect) {
-          setShowSimInstructions(true);
+          updateState({ activityCompleted: { ...state.activityCompleted, equation: true } });
           logEvent('shared_expression_validated', { expression: state.sharedExpression });
         } else {
-          setValidationError(result.feedback || "This shared equation does not logically match the truth table. Discuss changes with your partner.");
+          setValidationError(result.feedback || "Expression mismatch. Discuss with your partner.");
           updateState({ expressionConfirmed: { 1: false, 2: false } });
           logEvent('shared_expression_validation_fail', { feedback: result.feedback });
         }
       } catch (e: any) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: "The logic engine is currently busy. Please try again.",
-        });
+        toast({ variant: "destructive", title: "Validation Error", description: "Logic engine busy. Try again." });
         updateState({ expressionConfirmed: { 1: false, 2: false } });
       } finally {
         setValidating(false);
@@ -229,8 +185,11 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
   const handleConfirmSimulator = () => {
     setShowSimInstructions(false);
     updateState({ stage: 'simulator' });
-    logEvent('navigation_proceed_simulator', {});
   };
+
+  const handleFinishSimulator = () => {
+     updateState({ activityCompleted: { ...state.activityCompleted, simulator: true } });
+  }
 
   const addGate = (type: 'AND' | 'OR' | 'NOT') => {
     const newComp = {
@@ -244,11 +203,6 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
     logEvent('add_gate', { userId, type, gateId: newComp.id });
   };
 
-  const removeGroup = (id: string) => {
-    updateState({ userGroupings: state.userGroupings.filter(g => g.id !== id) });
-    logEvent('group_deletion_territory', { userId, groupId: id });
-  };
-
   const userGroups = state.userGroupings.filter(g => g.userId === userId);
 
   return (
@@ -260,41 +214,24 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             PARTNER {userId}
           </h3>
         </div>
-        {!allPromptsDone && (
-          <div className="flex items-center gap-1 text-[10px] font-black text-amber-600 animate-bounce">
-            <MessageSquareQuote className="w-3 h-3" />
-            DISCUSS TO UNLOCK
-          </div>
-        )}
       </div>
 
       <div className="flex-1 overflow-auto">
         {state.stage === 'onboarding' && (
           <div className="flex flex-col items-center justify-center h-full space-y-6">
             {!state.onboardingAccepted[userId] ? (
-              <>
-                <div className="text-center space-y-2">
-                  <p className="font-bold text-lg">Ready to start?</p>
-                  <p className="text-muted-foreground text-xs px-12">Click below when you have finished discussing the steps with your partner.</p>
-                </div>
-                <Button 
-                  size="lg" 
-                  disabled={!allPromptsDone}
-                  className={`w-48 h-20 text-xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} gap-2`}
-                  onClick={handleStartSession}
-                >
-                  <Rocket className="w-6 h-6" /> I'M READY
-                </Button>
-              </>
+              <Button 
+                size="lg" 
+                className={`w-48 h-20 text-xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} gap-2`}
+                onClick={handleStartSession}
+                disabled={!(state.completedPrompts.onboarding?.length === 3)}
+              >
+                <Rocket className="w-6 h-6" /> I'M READY
+              </Button>
             ) : (
               <div className="text-center space-y-4 animate-pulse">
-                <div className={`w-16 h-16 rounded-full ${accentColor} opacity-20 mx-auto flex items-center justify-center`}>
-                  <Loader2 className={`w-8 h-8 ${textColor} animate-spin`} />
-                </div>
-                <div>
-                  <p className="font-black text-xl tracking-tight uppercase">Status: Prepared</p>
-                  <p className="text-muted-foreground font-bold">Waiting for your partner...</p>
-                </div>
+                <Loader2 className={`w-8 h-8 ${textColor} animate-spin mx-auto`} />
+                <p className="font-black text-xl tracking-tight uppercase">Status: Prepared</p>
               </div>
             )}
           </div>
@@ -303,29 +240,17 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
         {state.stage === 'intro' && (
           <div className="flex flex-col items-center justify-center h-full space-y-6">
             {!state.accepted[userId] ? (
-              <>
-                <div className="text-center space-y-2">
-                  <p className="font-bold text-lg">Review the Logic Goal</p>
-                  <p className="text-muted-foreground text-sm px-8">Confirm you've read the objective to begin the truth table phase.</p>
-                </div>
-                <Button 
-                  size="lg" 
-                  disabled={!allPromptsDone}
-                  className={`w-48 h-20 text-2xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                  onClick={handleAccept}
-                >
-                  ACCEPT
-                </Button>
-              </>
+              <Button 
+                size="lg" 
+                className={`w-48 h-20 text-2xl font-black shadow-xl rounded-2xl ${isUser1 ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                onClick={handleAccept}
+              >
+                ACCEPT
+              </Button>
             ) : (
               <div className="text-center space-y-4 animate-pulse">
-                <div className={`w-16 h-16 rounded-full ${accentColor} opacity-20 mx-auto flex items-center justify-center`}>
-                  <Loader2 className={`w-8 h-8 ${textColor} animate-spin`} />
-                </div>
-                <div>
-                  <p className="font-black text-xl tracking-tight uppercase">Objective Confirmed</p>
-                  <p className="text-muted-foreground font-bold text-sm">Waiting for partner...</p>
-                </div>
+                <Loader2 className={`w-8 h-8 ${textColor} animate-spin mx-auto`} />
+                <p className="font-black text-xl tracking-tight uppercase text-slate-400">Objective Confirmed</p>
               </div>
             )}
           </div>
@@ -360,59 +285,23 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             {validationError && (
               <Alert variant="destructive" className="bg-red-50 border-red-200">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Review Needed</AlertTitle>
                 <AlertDescription className="text-xs">{validationError}</AlertDescription>
               </Alert>
             )}
 
-            {bothTruthTablesFilled ? (
+            {bothTruthTablesFilled && (
                <Button 
                 onClick={validateTruthTable} 
                 className="w-full h-14 text-lg font-black bg-primary shadow-xl rounded-xl gap-2"
-                disabled={!allPromptsDone}
               >
-                 <ShieldCheck className="w-5 h-5" /> VALIDATE & PROCEED
+                 <ShieldCheck className="w-5 h-5" /> VALIDATE MISSION DATA
                </Button>
-            ) : isSectionFilled ? (
-              <div className="p-4 bg-slate-50 rounded-xl text-sm font-bold text-center border-2 border-dashed border-slate-200 text-slate-400 italic">
-                Waiting for Peer...
-              </div>
-            ) : null}
+            )}
           </div>
         )}
 
         {state.stage === 'kmap' && (
           <div className="flex flex-col items-center justify-center h-full space-y-6 px-4">
-            <div className="text-center space-y-2">
-              <h4 className={`text-lg font-black tracking-tight ${textColor} uppercase`}>
-                K-MAP {state.kmapSubStage === 'fill' ? 'FILLING PHASE' : 'GROUPING PHASE'}
-              </h4>
-              <p className="text-xs text-muted-foreground font-bold leading-relaxed italic">
-                {state.kmapSubStage === 'fill' 
-                  ? "Collaborate on the shared board to map truth table values."
-                  : "Identify optimal pairs or blocks of 1s together."}
-              </p>
-            </div>
-
-            {state.kmapSubStage === 'group' && userGroups.length > 0 && (
-                <div className="w-full space-y-2">
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400">
-                    <ListFilter className="w-3 h-3" />
-                    Your Identified Groups
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {userGroups.map((g, idx) => (
-                      <div key={g.id} className={`flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-bold ${isUser1 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
-                        Group {idx + 1} ({g.cells.length} cells)
-                        <button onClick={() => removeGroup(g.id)} className="hover:opacity-70">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
             {validationError && (
               <Alert variant="destructive" className="bg-red-50 border-red-200 w-full">
                 <AlertCircle className="h-4 w-4" />
@@ -423,15 +312,14 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             {state.kmapSubStage === 'fill' ? (
               <Button 
                 onClick={validateKMapFilling}
-                disabled={!allPromptsDone}
                 className="w-full h-16 text-lg font-black bg-amber-600 shadow-xl rounded-xl gap-2"
               >
-                CHECK K-MAP VALUES
+                CHECK MAPPING VALUES
               </Button>
             ) : (
               <Button 
                 onClick={validateKMapGroupings} 
-                disabled={validating || !allPromptsDone}
+                disabled={validating}
                 className="w-full h-16 text-lg font-black bg-slate-900 shadow-xl rounded-xl gap-2"
               >
                 {validating ? <><Loader2 className="w-5 h-5 animate-spin" /> VERIFYING...</> : <><ShieldCheck className="w-5 h-5" /> VALIDATE OPTIMALITY</>}
@@ -447,10 +335,6 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                <h4 className="font-black text-sm uppercase tracking-tighter">Agreement Required</h4>
              </div>
              
-             <p className="text-xs font-bold text-muted-foreground leading-relaxed italic mb-4">
-               Discuss the final simplified expression with your partner. Once you both agree on the equation entered in the Laboratory, click confirm.
-             </p>
-
              {validationError && (
               <Alert variant="destructive" className="bg-red-50 border-red-200 mb-4">
                 <AlertCircle className="h-4 w-4" />
@@ -460,7 +344,7 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
              
              <Button 
                 onClick={handleConfirmExpression} 
-                disabled={validating || state.expressionConfirmed[userId] || !allPromptsDone}
+                disabled={validating || state.expressionConfirmed[userId]}
                 className={`w-full h-20 text-2xl font-black rounded-3xl shadow-2xl ${isUser1 ? 'bg-red-600' : 'bg-blue-600'} gap-2 transition-all active:scale-95`}
              >
                 {state.expressionConfirmed[userId] ? (
@@ -471,18 +355,11 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                   'AGREE WITH EQUATION'
                 )}
              </Button>
-             
-             {state.expressionConfirmed[userId] && !state.expressionConfirmed[isUser1 ? 2 : 1] && (
-               <p className="mt-4 text-[10px] font-black uppercase text-center text-slate-400 animate-pulse">
-                 Awaiting Partner Confirmation...
-               </p>
-             )}
           </div>
         )}
 
         {state.stage === 'simulator' && (
           <div className="space-y-4">
-             <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-400 px-1">Logic Gate Library</h4>
              <div className="grid grid-cols-3 gap-3">
                 {['AND', 'OR', 'NOT'].map((type) => (
                   <Button
@@ -496,12 +373,12 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
                   </Button>
                 ))}
              </div>
-             <div className="p-4 bg-muted/20 rounded-2xl border-2 border-dashed border-slate-200 flex gap-3 items-start">
-               <Info className="w-5 h-5 text-slate-400 shrink-0" />
-               <p className="text-[11px] font-bold text-slate-500 leading-tight">
-                 Add gates and build the circuit in the common space to match your Boolean expression. Double-tap a gate or wire to remove it.
-               </p>
-             </div>
+             <Button 
+                onClick={handleFinishSimulator}
+                className="w-full h-14 bg-slate-900 text-white font-black rounded-xl mt-4"
+              >
+                FINISH CONSTRUCTION
+              </Button>
           </div>
         )}
       </div>
@@ -518,25 +395,21 @@ export default function UserTerritory({ userId, state, updateState, logEvent, cl
             <div className="space-y-4 text-slate-700">
               <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">1</div>
-                <p className="font-bold">To add components, click the AND, OR, or NOT buttons in your personal space.</p>
+                <p className="font-bold">Add components via buttons in your territory.</p>
               </div>
               <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">2</div>
-                <p className="font-bold text-red-600">To remove a component or wire, double-tap it directly on the canvas.</p>
+                <p className="font-bold text-red-600">Double-tap wires or gates to remove them.</p>
               </div>
               <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">3</div>
-                <p className="font-bold">Drag components anywhere on the canvas to organize your circuit.</p>
-              </div>
-              <div className="flex gap-4 items-start p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-black shrink-0">4</div>
-                <p className="font-bold">Touch and drag from a black pin to create a wire connection.</p>
+                <p className="font-bold">Touch and drag from black pins to connect wires.</p>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button onClick={handleConfirmSimulator} className="w-full h-16 text-2xl font-black bg-primary rounded-2xl shadow-xl hover:bg-primary/90">
-              OK, LET'S BUILD!
+              START BUILDING
             </Button>
           </DialogFooter>
         </DialogContent>
