@@ -1,12 +1,18 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { GameStage } from '@/hooks/useGameState';
-import { Card, CardContent } from '@/components/ui/card';
-import { MessageSquareQuote, Zap, CheckCircle2 } from 'lucide-react';
+import { MessageSquareQuote, Zap, CheckCircle2, ChevronRight, MessageCircle } from 'lucide-react';
 import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ThinkAloudPromptsProps {
   stage: GameStage;
@@ -15,76 +21,95 @@ interface ThinkAloudPromptsProps {
 }
 
 export default function ThinkAloudPrompts({ stage, completedIndices, onMarkDone }: ThinkAloudPromptsProps) {
-  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const prompts = STAGE_PROMPTS[stage] || [];
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(-1);
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Find the first uncompleted prompt or stay on the current if not completed
+  // Trigger modal when stage changes or a prompt is completed
   useEffect(() => {
-    const firstUncompleted = prompts.findIndex((_, i) => !completedIndices.includes(i));
-    if (firstUncompleted !== -1) {
-      setCurrentPromptIndex(firstUncompleted);
+    const nextUncompleted = prompts.findIndex((_, i) => !completedIndices.includes(i));
+    if (nextUncompleted !== -1) {
+      setCurrentPromptIndex(nextUncompleted);
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
     }
   }, [stage, prompts.length, completedIndices]);
 
-  if (prompts.length === 0) return null;
+  if (prompts.length === 0 || currentPromptIndex === -1) return null;
 
-  const handleNext = () => {
-    setCurrentPromptIndex((prev) => (prev + 1) % prompts.length);
+  const handleConfirm = () => {
+    onMarkDone(currentPromptIndex);
   };
 
-  const isCurrentDone = completedIndices.includes(currentPromptIndex);
-  const allDone = completedIndices.length === prompts.length;
-
   return (
-    <Card className={`transition-all duration-500 shadow-md ${allDone ? 'bg-green-50 border-green-200' : 'bg-primary/5 border-primary/20'}`}>
-      <CardContent className="p-6 flex flex-col gap-4">
-        <div className="flex items-center gap-6">
-          <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${allDone ? 'bg-green-100' : 'bg-primary/10'}`}>
-            <MessageSquareQuote className={`w-7 h-7 ${allDone ? 'text-green-600' : 'text-primary'}`} />
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      // Prevent manual closing if prompts are pending
+      if (completedIndices.length < prompts.length) {
+        setIsOpen(true);
+      } else {
+        setIsOpen(open);
+      }
+    }}>
+      <DialogContent className="max-w-3xl rounded-[3rem] p-10 border-4 border-primary shadow-2xl bg-white">
+        <DialogHeader className="space-y-4">
+          <div className="flex items-center gap-4 text-primary">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <MessageCircle className="w-7 h-7" />
+            </div>
+            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">
+              Discussion Protocol
+            </DialogTitle>
           </div>
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-black uppercase tracking-widest ${allDone ? 'text-green-600' : 'text-primary/60'}`}>
-                  Please talk to your peer about what you are thinking
-                </span>
-                {!allDone && <Zap className="w-4 h-4 text-amber-500 fill-current animate-pulse" />}
-              </div>
-              <div className="text-[10px] font-bold text-slate-400 tabular-nums">
-                {completedIndices.length}/{prompts.length} DISCUSSION POINTS COMPLETED
+          <DialogDescription className="text-lg font-bold text-slate-600">
+            Please talk to your peer about what you are thinking.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-8">
+          <div className="bg-slate-50 rounded-[2.5rem] p-10 border-2 border-slate-100 relative group overflow-hidden">
+            <div className="absolute top-0 left-0 w-2 h-full bg-primary" />
+            <div className="flex flex-col items-center gap-8 text-center">
+              <MessageSquareQuote className="w-16 h-16 text-primary/20" />
+              <p className="text-3xl md:text-4xl font-black italic leading-tight text-slate-800 tracking-tight">
+                "{prompts[currentPromptIndex]}"
+              </p>
+              
+              <div className="flex items-center gap-4 bg-white px-8 py-4 rounded-2xl border-2 border-slate-200 shadow-sm">
+                <Checkbox 
+                  id={`prompt-${currentPromptIndex}`} 
+                  checked={false} 
+                  onCheckedChange={handleConfirm}
+                  className="w-10 h-10 rounded-xl border-4 border-primary data-[state=checked]:bg-primary"
+                />
+                <label 
+                  htmlFor={`prompt-${currentPromptIndex}`}
+                  className="text-xl font-black uppercase text-primary tracking-widest cursor-pointer"
+                >
+                  Mark as Discussed
+                </label>
               </div>
             </div>
-            <p className={`text-lg md:text-xl font-bold italic leading-relaxed ${isCurrentDone ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-              "{prompts[currentPromptIndex]}"
-            </p>
           </div>
         </div>
 
-        <div className="flex justify-center gap-3 pt-2">
-          {!isCurrentDone ? (
-            <Button 
-              size="lg" 
-              onClick={() => onMarkDone(currentPromptIndex)}
-              className="bg-primary hover:bg-primary/90 text-xs font-black h-12 px-8 rounded-xl gap-2 shadow-lg"
-            >
-              <CheckCircle2 className="w-5 h-5" /> MARK AS DISCUSSED
-            </Button>
-          ) : !allDone ? (
-            <Button 
-              size="lg" 
-              variant="outline"
-              onClick={handleNext}
-              className="text-xs font-black h-12 px-8 rounded-xl border-2 shadow-sm"
-            >
-              NEXT PROMPT
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2 text-green-700 font-black text-xs uppercase tracking-widest bg-green-100/50 px-6 py-3 rounded-xl border border-green-200">
-              <CheckCircle2 className="w-5 h-5" /> All Discussions Complete for this Stage
-            </div>
-          )}
+        <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+          <div className="flex gap-2">
+            {prompts.map((_, i) => (
+              <div 
+                key={i} 
+                className={`w-12 h-2 rounded-full transition-all ${
+                  i === currentPromptIndex ? 'bg-primary w-24' : 
+                  completedIndices.includes(i) ? 'bg-green-400' : 'bg-slate-200'
+                }`} 
+              />
+            ))}
+          </div>
+          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">
+            {completedIndices.length + 1} of {prompts.length} Discussion Points
+          </span>
         </div>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

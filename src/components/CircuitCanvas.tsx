@@ -1,11 +1,10 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
 import { GameState, CircuitComponent, WireConnection } from '@/hooks/useGameState';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb, Trash2 } from 'lucide-react';
 import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,15 +14,15 @@ interface CircuitCanvasProps {
   logEvent: (type: string, data: any) => void;
 }
 
-const GATE_WIDTH = 120;
-const GATE_HEIGHT = 80;
+const GATE_WIDTH = 160;
+const GATE_HEIGHT = 120; // Increased height for better pin spacing
 
 export default function CircuitCanvas({ state, updateState, logEvent }: CircuitCanvasProps) {
   const { toast } = useToast();
   // Multi-touch tracking
-  const [activeDrags, setActiveDrags] = useState<Record<number, string>>({}); // pointerId -> compId
-  const [activeWires, setActiveWires] = useState<Record<number, { id: string; pin: number; type: 'in' | 'out' }>>({}); // pointerId -> wireStart
-  const [pointerPos, setPointerPos] = useState<Record<number, { x: number; y: number }>>({}); // pointerId -> pos
+  const [activeDrags, setActiveDrags] = useState<Record<number, string>>({}); 
+  const [activeWires, setActiveWires] = useState<Record<number, { id: string; pin: number; type: 'in' | 'out' }>>({}); 
+  const [pointerPos, setPointerPos] = useState<Record<number, { x: number; y: number }>>({}); 
   
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [simulatedLedOutput, setSimulatedLedOutput] = useState<number>(0);
@@ -41,7 +40,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     
     setPointerPos(prev => ({ ...prev, [e.pointerId]: { x, y } }));
 
-    // Handle independent dragging
     const draggingId = activeDrags[e.pointerId];
     if (draggingId) {
       const comp = state.circuitComponents.find(c => c.id === draggingId);
@@ -94,6 +92,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       return { x: comp.x + GATE_WIDTH, y: comp.y + GATE_HEIGHT / 2 };
     } else {
       const inputCount = comp.type === 'NOT' || comp.type === 'LED' ? 1 : 2;
+      // Increased spacing logic for 2 inputs
       const spacing = GATE_HEIGHT / (inputCount + 1);
       return { x: comp.x, y: comp.y + spacing * (pinIndex + 1) };
     }
@@ -102,6 +101,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
   const deleteWire = (wireId: string) => {
     updateState({ wires: state.wires.filter(w => w.id !== wireId) });
     logEvent('wire_delete', { wireId });
+    toast({ title: "Wire Removed", description: "Connection deleted." });
   };
 
   const deleteGate = (gateId: string) => {
@@ -134,7 +134,7 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       let changed = true;
       let iterations = 0;
 
-      while (changed && iterations < 30) {
+      while (changed && iterations < 50) {
         changed = false;
         iterations++;
 
@@ -173,27 +173,14 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     }
 
     if (allMatch) {
-      setTestResult({ success: true, message: "Perfect! Your circuit design matches the required logic. Click FINISH TASK to submit." });
+      setTestResult({ success: true, message: "Perfect! Your circuit design matches the required logic." });
       setSimulatedLedOutput(1);
       logEvent('simulation_success', { totalTests: 16 });
     } else {
-      setTestResult({ success: false, message: `The circuit logic is incorrect for ${failures.length} combinations (e.g., input row ${failures[0]}). Discuss with your partner to identify the missing gates or wrong connections.` });
+      setTestResult({ success: false, message: `The circuit logic is incorrect for ${failures.length} combinations.` });
       setSimulatedLedOutput(0);
       logEvent('simulation_error', { failureCount: failures.length, failures });
     }
-  };
-
-  const handleFinalSubmit = () => {
-    if (!allPromptsDone) {
-      toast({
-        variant: "destructive",
-        title: "Discussion Required",
-        description: "Please discuss all shared points with your peer before finishing the task.",
-      });
-      return;
-    }
-    updateState({ stage: 'finished', isComplete: true });
-    logEvent('final_submission', { success: true });
   };
 
   const getPinAtPos = (x: number, y: number) => {
@@ -201,14 +188,14 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       if (comp.type !== 'LED') {
         const p = getPinPos(comp.id, 0, 'out');
         const d = Math.sqrt((p.x - x)**2 + (p.y - y)**2);
-        if (d < 40) return { id: comp.id, pin: 0, type: 'out' as const };
+        if (d < 50) return { id: comp.id, pin: 0, type: 'out' as const };
       }
       if (comp.type !== 'INPUT') {
         const pins = comp.type === 'NOT' || comp.type === 'LED' ? [0] : [0, 1];
         for (const pinIdx of pins) {
           const p = getPinPos(comp.id, pinIdx, 'in');
           const d = Math.sqrt((p.x - x)**2 + (p.y - y)**2);
-          if (d < 40) return { id: comp.id, pin: pinIdx, type: 'in' as const };
+          if (d < 50) return { id: comp.id, pin: pinIdx, type: 'in' as const };
         }
       }
     }
@@ -244,74 +231,53 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
 
   return (
     <div 
-      className="relative h-full w-full bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner overflow-hidden touch-none select-none"
+      className="relative h-full w-full bg-slate-50 rounded-[3rem] border-4 border-slate-200 shadow-inner overflow-hidden touch-none select-none"
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUpGlobal}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="absolute top-6 right-6 z-40 flex flex-col items-end gap-4 max-w-sm text-right">
-        <div className="flex gap-3">
-          <Button size="lg" onClick={runSimulation} className="bg-primary hover:bg-primary/90 font-black shadow-2xl gap-2 h-16 px-8 text-xl rounded-2xl">
-            <Play className="w-6 h-6 fill-current" /> TEST CIRCUIT
-          </Button>
-          {testResult?.success && (
-            <Button 
-              size="lg" 
-              onClick={handleFinalSubmit} 
-              className={`bg-green-600 hover:bg-green-700 font-black shadow-2xl gap-2 h-16 px-8 text-xl rounded-2xl ${allPromptsDone ? 'animate-bounce' : 'opacity-50'}`}
-            >
-              <CheckCircle2 className="w-6 h-6" /> FINISH TASK
-            </Button>
-          )}
-        </div>
+      <div className="absolute top-8 right-8 z-40 flex flex-col items-end gap-4 max-w-sm text-right">
+        <Button size="lg" onClick={runSimulation} className="bg-primary hover:bg-primary/90 font-black shadow-2xl gap-3 h-20 px-10 text-2xl rounded-3xl">
+          <Play className="w-8 h-8 fill-current" /> TEST CIRCUIT
+        </Button>
         
         {testResult && (
-          <Alert className={`${testResult.success ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'} shadow-2xl animate-in slide-in-from-right-4 rounded-2xl text-left`}>
-            {testResult.success ? <CheckCircle2 className="h-6 w-6 text-green-700" /> : <AlertTriangle className="h-6 w-6 text-red-700" />}
-            <AlertTitle className={`font-black uppercase tracking-widest text-sm ${testResult.success ? 'text-green-900' : 'text-red-900'}`}>
-              {testResult.success ? 'Verification Success' : 'Logical Error'}
-            </AlertTitle>
-            <AlertDescription className="text-sm font-bold leading-relaxed opacity-80 mt-1">
-              {testResult.message}
-            </AlertDescription>
+          <Alert className={`${testResult.success ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'} shadow-2xl animate-in slide-in-from-right-4 rounded-3xl text-left p-6`}>
+            {testResult.success ? <CheckCircle2 className="h-8 w-8 text-green-700" /> : <AlertTriangle className="h-8 w-8 text-red-700" />}
+            <div className="ml-4">
+              <AlertTitle className={`font-black uppercase tracking-widest text-base ${testResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                {testResult.success ? 'Verification Success' : 'Logical Error'}
+              </AlertTitle>
+              <AlertDescription className="text-sm font-bold opacity-80 mt-1">
+                {testResult.message}
+              </AlertDescription>
+            </div>
           </Alert>
         )}
       </div>
 
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-        <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orientation="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
-          </marker>
-        </defs>
         {state.wires.map(wire => {
           const start = getPinPos(wire.fromId, wire.fromPin, 'out');
           const end = getPinPos(wire.toId, wire.toPin, 'in');
           return (
             <g key={wire.id} className="pointer-events-auto cursor-pointer group">
               <path 
-                d={`M ${start.x} ${start.y} C ${start.x + 60} ${start.y}, ${end.x - 60} ${end.y}, ${end.x} ${end.y}`}
+                d={`M ${start.x} ${start.y} C ${start.x + 80} ${start.y}, ${end.x - 80} ${end.y}, ${end.x} ${end.y}`}
                 stroke="transparent"
-                strokeWidth="24"
+                strokeWidth="40"
                 fill="none"
                 className="cursor-pointer"
                 onDoubleClick={() => deleteWire(wire.id)}
               />
               <path 
-                d={`M ${start.x} ${start.y} C ${start.x + 60} ${start.y}, ${end.x - 60} ${end.y}, ${end.x} ${end.y}`}
+                d={`M ${start.x} ${start.y} C ${start.x + 80} ${start.y}, ${end.x - 80} ${end.y}, ${end.x} ${end.y}`}
                 stroke="#3b82f6"
-                strokeWidth="8"
+                strokeWidth="10"
                 fill="none"
                 strokeLinecap="round"
                 className="group-hover:stroke-red-400 transition-colors"
-              />
-              <path 
-                d={`M ${start.x} ${start.y} C ${start.x + 60} ${start.y}, ${end.x - 60} ${end.y}, ${end.x} ${end.y}`}
-                stroke="white"
-                strokeWidth="2"
-                fill="none"
-                opacity="0.3"
               />
             </g>
           );
@@ -325,8 +291,8 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
               key={ptrId}
               d={`M ${start.x} ${start.y} L ${end.x} ${end.y}`}
               stroke="#94a3b8"
-              strokeWidth="4"
-              strokeDasharray="10,6"
+              strokeWidth="6"
+              strokeDasharray="12,8"
               fill="none"
             />
           );
@@ -336,13 +302,13 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       {state.circuitComponents.map((comp) => (
         <div 
           key={comp.id}
-          className={`absolute group shadow-2xl border-4 rounded-2xl transition-all select-none ${
+          className={`absolute group shadow-2xl border-4 rounded-[2.5rem] transition-all select-none ${
             comp.userId === 0 ? 'border-slate-400 bg-slate-100' :
             comp.userId === 1 ? 'border-red-500/50' : 'border-blue-500/50'
           } ${
             comp.type === 'AND' ? 'gate-and' : comp.type === 'OR' ? 'gate-or' : 
             comp.type === 'NOT' ? 'gate-not' : 'bg-white'
-          } ${comp.type === 'LED' && simulatedLedOutput === 1 ? 'ring-[12px] ring-yellow-400 shadow-yellow-300' : ''} touch-none cursor-grab active:cursor-grabbing`}
+          } ${comp.type === 'LED' && simulatedLedOutput === 1 ? 'ring-[20px] ring-yellow-400 shadow-yellow-300' : ''} touch-none cursor-grab active:cursor-grabbing`}
           style={{ top: comp.y, left: comp.x, width: `${GATE_WIDTH}px`, height: `${GATE_HEIGHT}px` }}
           onPointerDown={(e) => { 
             if(comp.type !== 'INPUT') {
@@ -351,27 +317,24 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
           }}
           onDoubleClick={() => deleteGate(comp.id)}
         >
-          <div 
-            className={`h-1/3 w-full flex items-center justify-between px-4 rounded-t-xl ${comp.userId === 0 ? 'bg-slate-300' : 'bg-black/30'} text-slate-800`}
-          >
-            <span className="text-[10px] font-black tracking-widest opacity-80">
-              {comp.userId === 0 ? 'FIXED' : `P${comp.userId}`}
-            </span>
-            <Zap className="w-4 h-4 opacity-50" />
+          <div className="absolute top-4 left-0 right-0 flex justify-center opacity-30">
+             <span className="text-[10px] font-black tracking-widest uppercase">
+              {comp.userId === 0 ? 'Fixed' : `Partner ${comp.userId}`}
+             </span>
           </div>
 
-          <div className={`h-2/3 flex flex-col items-center justify-center ${comp.userId === 0 ? 'text-slate-800' : 'text-white'}`}>
-             <span className="font-black text-lg tracking-widest">{comp.type}</span>
-             {comp.label && <span className="text-xs font-bold opacity-80">{comp.label}</span>}
-             {comp.type === 'LED' && <Lightbulb className={`w-8 h-8 mt-1 transition-colors ${simulatedLedOutput === 1 ? 'text-yellow-400 fill-yellow-400' : 'text-slate-400'}`} />}
+          <div className={`h-full flex flex-col items-center justify-center ${comp.userId === 0 ? 'text-slate-800' : 'text-white'}`}>
+             <span className="font-black text-2xl tracking-widest">{comp.type}</span>
+             {comp.label && <span className="text-sm font-black opacity-80">{comp.label}</span>}
+             {comp.type === 'LED' && <Lightbulb className={`w-12 h-12 mt-2 transition-colors ${simulatedLedOutput === 1 ? 'text-yellow-400 fill-yellow-400' : 'text-slate-400'}`} />}
           </div>
 
           {(comp.type !== 'LED') && (
             <div 
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-16 h-16 flex items-center justify-center z-30"
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-20 h-20 flex items-center justify-center z-30"
               onPointerDown={(e) => startWiring(e, comp.id, 0, 'out')}
             >
-              <div className="w-7 h-7 rounded-full bg-slate-900 border-4 border-white group-hover:scale-125 transition-transform shadow-lg" />
+              <div className="w-10 h-10 rounded-full bg-slate-900 border-4 border-white group-hover:scale-125 transition-transform shadow-lg" />
             </div>
           )}
 
@@ -382,11 +345,11 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
               return (
                 <div 
                   key={pinIdx}
-                  className="absolute left-0 w-16 h-16 flex items-center justify-center z-30 -translate-x-1/2"
-                  style={{ top: spacing * (pinIdx + 1) - 32 }}
+                  className="absolute left-0 w-20 h-20 flex items-center justify-center z-30 -translate-x-1/2"
+                  style={{ top: spacing * (pinIdx + 1) - 40 }}
                   onPointerDown={(e) => startWiring(e, comp.id, pinIdx, 'in')}
                 >
-                  <div className="w-7 h-7 rounded-full bg-slate-900 border-4 border-white group-hover:scale-125 transition-transform shadow-lg" />
+                  <div className="w-10 h-10 rounded-full bg-slate-900 border-4 border-white group-hover:scale-125 transition-transform shadow-lg" />
                 </div>
               );
             })
