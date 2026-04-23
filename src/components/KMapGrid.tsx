@@ -3,7 +3,7 @@
 
 import React, { useState, useRef } from 'react';
 import { GameState, KMapGrouping } from '@/hooks/useGameState';
-import { X, MousePointer2, Info, Layout, CheckCircle2, Layers } from 'lucide-react';
+import { X, MousePointer2, Info, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -18,6 +18,7 @@ interface KMapGridProps {
 export default function KMapGrid({ state, updateState, logEvent, activeUserId, readOnly = false }: KMapGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   
+  // Grey code order for K-map axes
   const greyOrder = [0, 1, 3, 2];
   
   const getCellIndex = (r: number, c: number) => {
@@ -26,8 +27,8 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
     return (rowGrey << 2) | colGrey;
   };
 
-  const [selectionStart, setSelectionStart] = useState<{row: number, col: number} | null>(null);
-  const [currentHover, setCurrentHover] = useState<{row: number, col: number} | null>(null);
+  // Multi-touch selection tracking
+  const [activeSelections, setActiveSelections] = useState<Record<number, { start: {row: number, col: number}, current: {row: number, col: number} }>>({});
 
   const handleCellClick = (r: number, c: number) => {
     if (readOnly || state.kmapSubStage !== 'fill') return;
@@ -43,7 +44,7 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
 
     const newKMapValues = [...state.userKMapValues];
     newKMapValues[idx] = newVal;
-    updateState({ userKMapValues: newKValues });
+    updateState({ userKMapValues: newKMapValues });
     logEvent('kmap_value_toggle', { userId: activeUserId, row: r, col: c, value: newVal });
   };
 
@@ -64,32 +65,43 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     
-    setSelectionStart({ row: r, col: c });
-    setCurrentHover({ row: r, col: c });
+    setActiveSelections(prev => ({
+      ...prev,
+      [e.pointerId]: { start: { row: r, col: c }, current: { row: r, col: c } }
+    }));
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!selectionStart || readOnly || state.kmapSubStage !== 'group') return;
-    
+    if (readOnly || state.kmapSubStage !== 'group') return;
+    const selection = activeSelections[e.pointerId];
+    if (!selection) return;
+
     const cell = getCellFromPointer(e);
-    if (cell && (!currentHover || currentHover.row !== cell.row || currentHover.col !== cell.col)) {
-      setCurrentHover(cell);
+    if (cell && (selection.current.row !== cell.row || selection.current.col !== cell.col)) {
+      setActiveSelections(prev => ({
+        ...prev,
+        [e.pointerId]: { ...selection, current: cell }
+      }));
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (!selectionStart || readOnly || state.kmapSubStage !== 'group') {
-      setSelectionStart(null);
-      setCurrentHover(null);
+    const selection = activeSelections[e.pointerId];
+    if (!selection || readOnly || state.kmapSubStage !== 'group') {
+      setActiveSelections(prev => {
+        const next = { ...prev };
+        delete next[e.pointerId];
+        return next;
+      });
       return;
     }
     
-    const cell = getCellFromPointer(e) || currentHover || selectionStart;
+    const cell = getCellFromPointer(e) || selection.current;
     
-    const minRow = Math.min(selectionStart.row, cell.row);
-    const maxRow = Math.max(selectionStart.row, cell.row);
-    const minCol = Math.min(selectionStart.col, cell.col);
-    const maxCol = Math.max(selectionStart.col, cell.col);
+    const minRow = Math.min(selection.start.row, cell.row);
+    const maxRow = Math.max(selection.start.row, cell.row);
+    const minCol = Math.min(selection.start.col, cell.col);
+    const maxCol = Math.max(selection.start.col, cell.col);
 
     const cells = [];
     for (let i = minRow; i <= maxRow; i++) {
@@ -112,37 +124,17 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
       logEvent('group_creation', { userId: activeUserId, cells, size });
     }
 
-    setSelectionStart(null);
-    setCurrentHover(null);
+    setActiveSelections(prev => {
+      const next = { ...prev };
+      delete next[e.pointerId];
+      return next;
+    });
   };
 
   const removeGrouping = (id: string) => {
     if (readOnly) return;
     updateState({ userGroupings: state.userGroupings.filter(g => g.id !== id) });
     logEvent('group_deletion', { groupId: id });
-  };
-
-  const renderGhostSelection = () => {
-    if (!selectionStart || !currentHover) return null;
-
-    const minRow = Math.min(selectionStart.row, currentHover.row);
-    const maxRow = Math.max(selectionStart.row, currentHover.row);
-    const minCol = Math.min(selectionStart.col, currentHover.col);
-    const maxCol = Math.max(selectionStart.col, currentHover.col);
-    
-    const style = {
-      top: `${minRow * 25}%`,
-      left: `${minCol * 25}%`,
-      width: `${(maxCol - minCol + 1) * 25}%`,
-      height: `${(maxRow - minRow + 1) * 25}%`,
-    };
-
-    return (
-      <div 
-        className="absolute border-4 border-dashed border-primary bg-primary/10 rounded-md pointer-events-none z-20"
-        style={style}
-      />
-    );
   };
 
   return (
@@ -209,7 +201,26 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
         </div>
 
         <div className="absolute inset-10 pointer-events-none">
-          {renderGhostSelection()}
+          {Object.entries(activeSelections).map(([ptrId, selection]) => {
+            const minRow = Math.min(selection.start.row, selection.current.row);
+            const maxRow = Math.max(selection.start.row, selection.current.row);
+            const minCol = Math.min(selection.start.col, selection.current.col);
+            const maxCol = Math.max(selection.start.col, selection.current.col);
+            
+            return (
+              <div 
+                key={`selection-${ptrId}`}
+                className="absolute border-4 border-dashed border-primary bg-primary/10 rounded-md pointer-events-none z-20"
+                style={{
+                  top: `${minRow * 25}%`,
+                  left: `${minCol * 25}%`,
+                  width: `${(maxCol - minCol + 1) * 25}%`,
+                  height: `${(maxRow - minRow + 1) * 25}%`,
+                }}
+              />
+            );
+          })}
+          
           {state.userGroupings.map((g) => {
             const minRow = Math.min(...g.cells.map(c => c.row));
             const maxRow = Math.max(...g.cells.map(c => c.row));
@@ -277,4 +288,3 @@ export default function KMapGrid({ state, updateState, logEvent, activeUserId, r
     </div>
   );
 }
-
