@@ -15,7 +15,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Download, CheckCircle, RefreshCcw, AlertTriangle, Loader2, PartyPopper } from 'lucide-react';
 
 export default function LogicLabApp() {
   const { 
@@ -93,22 +93,22 @@ export default function LogicLabApp() {
 
   if (state.stage === 'finished') {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-white p-12 text-center space-y-8">
-        <div className="w-32 h-32 bg-green-100 rounded-[3rem] flex items-center justify-center mb-4 animate-in zoom-in-50 duration-500">
-          <CheckCircle className="w-16 h-16 text-green-600" />
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-white p-12 text-center space-y-8 animate-in fade-in duration-1000">
+        <div className="w-32 h-32 bg-green-100 rounded-[3rem] flex items-center justify-center mb-4 animate-bounce">
+          <PartyPopper className="w-16 h-16 text-green-600" />
         </div>
-        <div className="space-y-2">
-          <h1 className="text-5xl font-black tracking-tighter text-slate-900">MISSION COMPLETE!</h1>
-          <p className="text-xl font-bold text-muted-foreground max-w-lg">
-            Outstanding collaboration. The circuit operates exactly as required.
+        <div className="space-y-4">
+          <h1 className="text-6xl font-black tracking-tighter text-slate-900 uppercase">MISSION COMPLETE!</h1>
+          <p className="text-4xl font-black text-primary max-w-3xl mx-auto leading-tight italic">
+            "The task is successfully completed. Congrats!"
           </p>
         </div>
-        <div className="flex gap-4">
-          <Button size="lg" onClick={downloadLogs} className="h-16 gap-3 px-10 rounded-2xl font-black text-lg bg-slate-900 shadow-2xl">
-            <Download className="w-6 h-6" /> DOWNLOAD LOGS
+        <div className="flex gap-6 mt-8">
+          <Button size="lg" onClick={downloadLogs} className="h-20 gap-3 px-12 rounded-[2rem] font-black text-xl bg-slate-900 shadow-2xl hover:scale-105 transition-transform">
+            <Download className="w-7 h-7" /> DOWNLOAD LOGS
           </Button>
-          <Button variant="outline" size="lg" onClick={() => window.location.reload()} className="h-16 gap-3 px-10 rounded-2xl font-black text-lg border-4">
-            <RefreshCcw className="w-6 h-6" /> NEW TASK
+          <Button variant="outline" size="lg" onClick={() => window.location.reload()} className="h-20 gap-3 px-12 rounded-[2rem] font-black text-xl border-4 hover:bg-slate-50 hover:scale-105 transition-transform">
+            <RefreshCcw className="w-7 h-7" /> NEW TASK
           </Button>
         </div>
       </div>

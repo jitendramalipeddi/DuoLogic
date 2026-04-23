@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { GameState, CircuitComponent, WireConnection } from '@/hooks/useGameState';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb, Trash2 } from 'lucide-react';
+import { Zap, Play, CheckCircle2, AlertTriangle, Lightbulb, Trash2, PartyPopper } from 'lucide-react';
 import { STAGE_PROMPTS } from '@/lib/think-aloud-data';
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,7 +15,7 @@ interface CircuitCanvasProps {
 }
 
 const GATE_WIDTH = 160;
-const GATE_HEIGHT = 120; // Increased height for better pin spacing
+const GATE_HEIGHT = 120; 
 
 export default function CircuitCanvas({ state, updateState, logEvent }: CircuitCanvasProps) {
   const { toast } = useToast();
@@ -92,7 +92,6 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
       return { x: comp.x + GATE_WIDTH, y: comp.y + GATE_HEIGHT / 2 };
     } else {
       const inputCount = comp.type === 'NOT' || comp.type === 'LED' ? 1 : 2;
-      // Increased spacing logic for 2 inputs
       const spacing = GATE_HEIGHT / (inputCount + 1);
       return { x: comp.x, y: comp.y + spacing * (pinIndex + 1) };
     }
@@ -173,9 +172,14 @@ export default function CircuitCanvas({ state, updateState, logEvent }: CircuitC
     }
 
     if (allMatch) {
-      setTestResult({ success: true, message: "Perfect! Your circuit design matches the required logic." });
+      setTestResult({ success: true, message: "Perfect! Your circuit logic is correct. Task successfully completed." });
       setSimulatedLedOutput(1);
       logEvent('simulation_success', { totalTests: 16 });
+      toast({
+        title: "Simulation Passed!",
+        description: "The task is successfully completed. Congrats!",
+        className: "bg-green-600 text-white border-none font-bold",
+      });
     } else {
       setTestResult({ success: false, message: `The circuit logic is incorrect for ${failures.length} combinations.` });
       setSimulatedLedOutput(0);
